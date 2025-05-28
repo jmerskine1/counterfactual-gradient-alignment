@@ -1,0 +1,20 @@
+pyhamcrest
+objax
+jax==0.4.11
+jaxlib==0.4.11
+fat-forensics [ml]
+flax==0.6.9
+dm-haiku
+scikit-learn
+tqdm
+ipywidgets
+plotly
+tensorflow_datasets
+seaborn
+optax
+numpy
+pandas
+pyqtgraph
+tensorflow
+torch
+matplotlib
