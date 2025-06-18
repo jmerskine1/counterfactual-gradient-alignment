@@ -20,6 +20,7 @@ import sys
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 from matplotlib.colors import ListedColormap
+from matplotlib import colormaps
 
 import time
 import math
@@ -31,7 +32,7 @@ import csv
 from pathlib import Path
 from functools import partial
 
-from gradient_supervision_package.library.custom_models import custom_models
+from counterfactual_alignment.custom_models import custom_models
 from matplotlib.ticker import FormatStrFormatter
 from matplotlib.lines import Line2D
 
@@ -230,6 +231,10 @@ def get_unit_vec(p1,p2):
       
       distance = np.sqrt(abs(vec_x)**2 + abs(vec_y)**2)
 
+      if distance == 0:
+          Warning(f"Returning difference instead of euclidean distance as at least one dimension is unchanged: \nPoint 1:{p1}, Point 2:{p2}")
+          return np.array((vec_x,vec_y)), distance
+
       return np.array([vec_x,vec_y])/distance, distance
 
 
@@ -308,6 +313,85 @@ def visualise_classes(dataset,knowledge=True):
   plt.show()
 
   return fig, ax
+
+
+
+c_palette = sns.palettes.color_palette()
+cmapList= list(colormaps)
+
+def plot_from_results_file(results, xlims = None, ylims = None, loss = False, labels=None):
+        if type(results) != list:
+                results = [results]
+        
+        cmaps = list(colormaps)
+        # Create figure and 3D axis
+        fig = plt.figure()
+        ax = fig.add_subplot(111)
+
+        
+        
+        
+        
+        linestyles = [ ':','-.', '--','-']
+
+        for i,results in enumerate(results):
+                col = c_palette[i]
+                # Create figure and 3D axis
+                
+                count = 0
+                for name, res in results.items():
+                        
+                        if labels:
+                                if i < len(labels):
+                                        name = f'{labels[i]} - {name}'
+
+
+                        accuracy = res['accuracy']
+                        if len(accuracy)==0:
+                                continue
+                        
+                        
+                        x = range(len(accuracy))
+                        line = ax.plot(x,accuracy,linestyle=linestyles[count],label=name, color=col)
+                        
+                        # Find the maximum accuracy and its corresponding x-value
+                        max_acc = np.max(accuracy)
+                        max_idx = np.argmax(accuracy)
+
+                        # Plot a marker at the maximum accuracy point using the line's color
+                        ax.plot(max_idx, max_acc, 'o', color=col, markersize=8)
+
+                        # Add a label next to the marker, color coded to match the line color
+                        ax.text(1, max_acc, f'{max_acc*100:.1f}%', fontsize=10, 
+                                verticalalignment='bottom', horizontalalignment='right', 
+                                color=col)
+                        
+                        if 'train' in name.lower():
+                                if loss:
+                                        loss = res['losses']
+                                        x = range(len(loss))
+                                        # ax.plot(x,loss,linestyle=linestyles[count], color=col,alpha=0.)
+                                        ax.scatter(x,loss,marker='+', s=20, color=col,alpha=0.5)
+                                        
+                                
+                        count+=1
+
+
+        
+
+        # Add legend and labels
+        ax.legend()
+        ax.set_xlabel('Epoch')
+        ax.set_ylabel('Accuracy')
+        
+        if xlims:
+                ax.set_xlim(xlims)
+        
+        if ylims:
+                ax.set_ylim(ylims)
+
+        plt.show()
+        return fig,ax
 
 
 def visualise_classes_archive(data):
@@ -402,11 +486,9 @@ def sigmoid(z):
   return 1/(1 + np.exp(-z))
 
 def compute_metrics(logits, labels):
-    
+
     loss = np.mean(optax.sigmoid_binary_cross_entropy(logits, labels))
     pred_labels = (nn.sigmoid(logits) > 0.5).astype(np.float32)
-    # print(pred_labels,labels)
-    # print(logits,labels,pred_labels)
     accuracy = (pred_labels == labels).mean()
     metrics = {
         'loss': loss,
@@ -415,9 +497,10 @@ def compute_metrics(logits, labels):
     return metrics
 
 def generate_results(data,model,params,name='Untitled'):
-        
-        logits = model.apply({'params':params},np.array(data.X['vector']))
-        metrics = compute_metrics(logits,np.array(data.Y))
+        X = data[0]
+        Y = data[1]
+        logits = model.apply({'params':params},np.array(X))
+        metrics = compute_metrics(logits,np.array(Y))
         print(f"{name} Loss: {metrics['loss']}, {name} Accuracy: {metrics['accuracy'] * 100}")
         return metrics
 
@@ -425,8 +508,6 @@ def generate_results_ensemble(X,Y,models,params,name='Untitled'):
         logits = np.zeros((len(models),len(X['vector'])))
         
         for i, (model, param) in enumerate(list(zip(models,params))):
-            # logits[i,:] = batched_inference(param,model,np.array(data.X['vector'])).squeeze(axis=-1)
-            # print(np.shape(logis),np.shape(np.array(data.X['vector'])))
             logits[i,:] = model.apply({'params':param},np.array(X['vector']),train=False)
         
         logits = np.mean(logits,axis=0)
@@ -489,8 +570,10 @@ def create_train_state_batch(model,init_rng,opt,batch_size = 128,vector_length=3
 #     return train_state.TrainState.create(apply_fn=model.apply, params=variables['params'],  tx=opt), model
 
 
-def create_train_state(model, init_rng, opt, vector_length=768, embedding_dim=50):
-    key = jax.random.PRNGKey(42)
+def create_train_state(model, opt, vector_length=768, embedding_dim=50, key = None):
+    if key == None:
+        key = jax.random.PRNGKey(42)
+    
     main_key, dropout_key = jax.random.split(key)
 
     init_rngs = {'params': main_key, 'dropout': dropout_key}
@@ -602,7 +685,9 @@ def close_event():
             plt.close() #timer calls this function after 3 seconds and closes the window 
 
 
-def plotEpoch(rng, X, y, model, states, plot_type = None, name = 'untitled'):
+def plotEpoch(X, y, model, states, plot_type = None, name = 'untitled',key = None):
+    if key == None:
+        key = jax.random.PRNGKey(42)
 
     x_min, x_max = X[:, 0].min() - .5, X[:, 0].max() + .5
     y_min, y_max = X[:, 1].min() - .5, X[:, 1].max() + .5
@@ -612,12 +697,13 @@ def plotEpoch(rng, X, y, model, states, plot_type = None, name = 'untitled'):
     points = np.stack([xx.ravel(), yy.ravel()]).T
     
     for epoch,state in enumerate(states):
+      
     #   model = custom_models[hyperparams['model']](*hyperparams['model_io'])
       Z = model.apply({'params': state.params}, points)
 
       grad_map = jax.vmap(jax.grad(predict_wrapper, argnums=2), in_axes=(None, None, 0, None), out_axes=0)
       
-      grads = grad_map(state.params, model,  points, rng)
+      grads = grad_map(state.params, model,  points, key)
       magnitude = np.linalg.norm(grads, axis=1)
 
       fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 5), sharey='row')
@@ -645,20 +731,21 @@ def plotEpoch(rng, X, y, model, states, plot_type = None, name = 'untitled'):
       
 
       if plot_type == 'video':
-        
-        plt.savefig(os.getcwd() + "/video/file%02d.png" % epoch)  
+        os.makedirs("video",exist_ok=True)
+        os.makedirs("video/tmp",exist_ok=True)
+        plt.savefig(os.getcwd() + "/video/tmp/file%02d.png" % epoch)  
         plt.close()
       else:  
         timer.start()
         plt.show()
         
-      
     if plot_type == 'video':
+      
       subprocess.call([
-              'ffmpeg', '-framerate', '3', '-i',os.getcwd() + "/video/file%02d.png", '-r', '30', '-pix_fmt', 'yuv420p',
+              'ffmpeg', '-framerate', '3','-loglevel', 'quiet', '-i',os.getcwd() + "/video/tmp/file%02d.png", '-r', '30', '-pix_fmt', 'yuv420p','-y',
               os.getcwd() + f"/video/{name}.mp4"])
       
-      for file_name in glob.glob(os.getcwd() + "/video/*.png" ):
+      for file_name in glob.glob(os.getcwd() + "/video/tmp/*.png" ):
           os.remove(file_name)
     
 
@@ -666,20 +753,11 @@ def generate_figure(hyperparams, X, y, state):
     
     # plt.close('all')
     if plt.get_fignums():
-      print(f'there are {len(plt.get_fignums())} figures')
-      print(f'figure {plt.get_fignums()[0]}')
       gui_fig = plt.figure(plt.get_fignums()[0])
       plt.figure(gui_fig.number)
-      # plt.clf()
-      # gui_fig.clear()
-      fignums = plt.get_fignums()
-      print(fignums)
-      print(len(plt.get_fignums()))
       
-      # gui_fig = plt.gcf()
-      print('EXISTS')
     else:
-       print("EMPTY")
+       
        gui_fig = plt.figure()
     
     rect = gui_fig.patch
@@ -785,7 +863,7 @@ def interactivePlot2():
 
 def gen_knowledge(dataset, knowledge_func):
     # dataset.data.K['vector'],dataset.data.K['label'],dataset.data.K['magnitude'] = (knowledge_func(dataset,n_vec=dataset.n_vec)) Need to correct old stuff from this
-    dataset.data.X,dataset.data.K = knowledge_func(dataset.data.X,n_vec=dataset.n_vec) # to this
+    dataset.data.K = knowledge_func(dataset.data.X['vector'],dataset.data.optimum_classifier,n_vec=dataset.n_vec) # to this
 
 def save_stats(dict,name, path = os.getcwd()+'/results'):
   print(name)
@@ -823,38 +901,27 @@ def gen_savepath(data_params,hyperparams):
 
 # @jax.jit  # Jit the function for efficiency
 # @profile
-def train_step(state, model, batch, loss_function, rng):
+def train_step(state, model, batch, loss_function, rng, config):
     
-    # print("Embed weight std:", state.params['embed']['embedding'].std())
-
-    (_, logits), grads = jax.value_and_grad(loss_function, has_aux=True, argnums=0, allow_int=True)(state.params, model, batch, rng)
-    # print("embed",np.sum(np.abs(grads['embed']['embedding'])))
-    # print("dense bais ",np.sum(np.abs(grads['linear1']['bias'])))
-    # print("dense kernel ",np.sum(np.abs(grads['linear1']['kernel'])))
-
-    # (_, (logits, batch_stats)), grads = jax.value_and_grad(loss_function, has_aux=True, argnums=0, allow_int=True)(state.params,state.batch_stats, model, batch, rng)
-    # Check if gradients are all zero or not
-    # print("OUTPUTS: ",batch['Y'],logits)
+    (_, logits), grads = jax.value_and_grad(loss_function, has_aux=True, argnums=0, allow_int=True)(state.params, model, batch, rng, config)
+    
     if False:
       for path, grad in traverse_util.flatten_dict(grads).items():
           norm = jnp.linalg.norm(grad)
           print(".".join(path), norm)
     
     state = state.apply_gradients(grads=grads)
-    # print(np.sum(grads['Embed_0']['embedding']))
-
-    metrics = compute_metrics(logits=logits, labels=batch['Y'])
-    # print('Logits: ',logits[0],'\nLabels: ',batch['Y'][0],'\nText: ',batch['X']['text'][0])
+    metrics = compute_metrics(logits=logits, labels=np.array(batch[1]))
 
     return state, metrics
+
+
 
 # @jax.jit  # Jit the function for efficiency
 def train_step_batch(state, model, batch, loss_function, rng):
-    
-    # (_, logits), grads = jax.value_and_grad(loss_function, has_aux=True, argnums=1, allow_int=True)( model, state.params, batch)
+
     (_, (logits, batch_stats)), grads = jax.value_and_grad(loss_function, has_aux=True, argnums=0, allow_int=True)(state.params,state.batch_stats, model, batch, rng)
     # Check if gradients are all zero or not
-    # print("OUTPUTS: ",batch['Y'],logits)
     if False:
       for path, grad in traverse_util.flatten_dict(grads).items():
           norm = jnp.linalg.norm(grad)
@@ -862,26 +929,22 @@ def train_step_batch(state, model, batch, loss_function, rng):
     state = state.apply_gradients(grads=grads)
 
     metrics = compute_metrics(logits=logits, labels=batch['Y'])
-    # print('Logits: ',logits[0],'\nLabels: ',batch['Y'][0],'\nText: ',batch['X']['text'][0])
-
 
     return state, metrics
 
 
-def train_one_epoch(state, data_loader, model, loss_function, rng, visualise=False):
+def train_one_epoch(state, data_loader, model, loss_function, rng, config, visualise=False):
 
     batch_metrics = {'loss':[],'accuracy':[]}
     
     for batch in data_loader:
         # from custom datsets - getitem: batch -> X, y, direction, direction label, direction distance 
         
-        state, metrics = train_step(state, model, batch, loss_function, rng)
+        state, metrics = train_step(state, model, batch, loss_function, rng, config)
         
         # batch_metrics.append(metrics)
         batch_metrics['loss'].append(metrics['loss'])
         batch_metrics['accuracy'].append(metrics['accuracy'])
-
-        
 
     batch_metrics_np = jax.device_get(batch_metrics)  # pull from the accelerator onto host (CPU)
     
@@ -889,9 +952,6 @@ def train_one_epoch(state, data_loader, model, loss_function, rng, visualise=Fal
                         'accuracy':np.mean(batch_metrics_np['accuracy']),
                         }
     
-      
-
-        
     return state, epoch_metrics_np
 
 

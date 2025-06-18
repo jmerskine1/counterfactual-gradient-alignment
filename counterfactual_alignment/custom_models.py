@@ -37,30 +37,14 @@ class SimpleClassifier(nn.Module):
         # nn.Dense is a linear layer
         self.linear1 = nn.Dense(features=self.num_hidden)
         self.linear2 = nn.Dense(features=self.num_outputs) 
-        self.conv1 = nn.Conv(features=64, kernel_size=(7,), padding='SAME',
-                    kernel_init=glorot_normal(), use_bias=True)
-        self.conv2 = nn.Conv(features=64, kernel_size=(7,), padding='VALID', strides=(3,),
-                    kernel_init=glorot_normal(), use_bias=True)
         self.dropout = nn.Dropout(rate=0.5)
 
     def __call__(self, x,train=False):
-        # print('X: ',[np.sum(x_) for x_ in x])
-        # Perform the calculation of the model to determine the prediction
-        
-
-        x = self.linear1(x)
-        
-        # x = self.conv1(x)
-        # x = nn.relu(x)
-        
+        x = self.linear1(x)      
         x = nn.tanh(x)
         x = self.dropout(x, deterministic= not train)
         x = self.linear2(x)
-        # x = nn.relu(x)0
-        # x = x.reshape((-1))
-        # print("shapex0", np.shape(nn.sigmoid(x).squeeze(axis=1)))
-        # print("shapex", np.shape(nn.sigmoid(x).squeeze(axis=-1)))
-        # return nn.sigmoid(x).squeeze(axis=-1)
+  
         return x.squeeze(axis=-1)
 
 

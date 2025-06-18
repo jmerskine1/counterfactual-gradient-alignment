@@ -1,0 +1,28 @@
+data_params:
+  boundary_only: false
+  dataset: XOR
+  knowledge_func: counterfactual
+  max_delta: 1.0
+  n_vec: 1
+  train_size: 20
+  validation_size: 100
+hyperparams:
+  batch_size: 8
+  epochs: 50
+  learning_rate: 0.05
+  loss_function: loss_wrapper
+  loss_mix: 1.0
+  model: simple
+  model_io: !!python/tuple
+  - 8
+  - 1
+  model_size: !!python/tuple
+  - 80
+  - 1
+  momentum: 0.5
+  seed: 100
+visualisation:
+  draw_eval: true
+  plot_epoch: false
+  video: false
+  visualise: true

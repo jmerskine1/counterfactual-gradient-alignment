@@ -19,18 +19,15 @@ import optax
 import torch.utils.data as data
 
 # Custom Libraries
-from gradient_supervision_package.library.custom_models   import SimpleClassifier, MLP, CNN,  GSPaper, GSPaperNew, GSPaper2, GSPaper3, BagOfWordsClassifier, BagOfWordsClassifierSimple, BagOfWordsClassifierSingle, TextClassifierEmbeddingsSetfit
-from gradient_supervision_package.library.custom_datasets import customDataset, genCustomDataset
-from gradient_supervision_package.library.custom_datasets import datasets as custom_datasets
-from gradient_supervision_package.library.loss_functions import loss_functions
-from gradient_supervision_package.library.knowledge_functions import knowledge_functions
-from gradient_supervision_package.library.utilities import (visualise_classes, numpy_collate, custom_collate, custom_collate_2D,
-                        reduce_dataset, compute_metrics, generate_results, generate_results_ensemble, create_train_state, boundary_filter, save_stats, train_one_epoch, combine_datasets, plotEpoch)
+from counterfactual_alignment import custom_models, utilities, loss_functions, knowledge_functions
+import counterfactual_alignment.custom_datasets as cd
+import counterfactual_alignment.utilities as ut
 
 
 import yaml
+import os
 
-config_file = "/Users/jonathanerskine/University of Bristol/gradient_supervision/ecai_25/config.yaml"
+config_file = os.path.join(os.getcwd(),"config.yaml")
 with open(config_file,'r') as file:
     config = yaml.unsafe_load(file)[0]
 
@@ -103,17 +100,17 @@ rng, inp_rng, init_rng, dropout_rng, embedding_rng = jax.random.split(rng, 5)
 Gen Datasets
 """
 
-train = genCustomDataset(custom_datasets[config['data_params']['dataset']],config['data_params']['train_size'],knowledge_functions[config['data_params']['knowledge_func']],
+train = cd.genCustomDataset(cd.datasets[config['data_params']['dataset']],config['data_params']['train_size'],knowledge_functions.knowledge_functions[config['data_params']['knowledge_func']],
                                                             train=True, 
                                                             visualise=config['visualisation']['visualise'],
                                                             seed=config['hyperparams']['seed'],
                                                             n_vec = config['data_params']['n_vec'])
 
-training_dataloader = data.DataLoader(train, batch_size=batch_size, shuffle=False, drop_last=False, collate_fn=custom_collate_2D, generator=torch.Generator().manual_seed(seed))
+training_dataloader = data.DataLoader(train, batch_size=batch_size, shuffle=False, drop_last=False, collate_fn=ut.custom_collate_2D, generator=torch.Generator().manual_seed(seed))
 
-validation = genCustomDataset(custom_datasets[config['data_params']['dataset']],config['data_params']['validation_size'],knowledge_functions[config['data_params']['knowledge_func']],
+validation = cd.genCustomDataset(cd.datasets[config['data_params']['dataset']],config['data_params']['validation_size'],knowledge_functions.knowledge_functions[config['data_params']['knowledge_func']],
                                                             train=False, visualise=False,seed=config['hyperparams']['seed'])
-validation_data_loader = data.DataLoader(validation, batch_size=batch_size, shuffle=True, drop_last=True, collate_fn=custom_collate_2D)
+validation_data_loader = data.DataLoader(validation, batch_size=batch_size, shuffle=True, drop_last=True, collate_fn=ut.custom_collate_2D)
 
 
 
@@ -124,7 +121,7 @@ n_vectors = len(train.X['vector'][0])
 
 ensemble = {
             # 'models':[BagOfWordsClassifier(20000,50)]*n_models,
-            'models':[SimpleClassifier(8,1)]*n_models,
+            'models':[custom_models.SimpleClassifier(8,1)]*n_models,
             'rngs':jax.random.split(rng,n_models),
             'init_rngs':jax.random.split(init_rng,n_models),
             'train_states':[],
@@ -143,13 +140,14 @@ model_name = type(ensemble['models'][0]).__name__
 
 for i in range(n_models):
     # trained_state, model = create_train_state(ensemble['models'][i],ensemble['init_rngs'][i],optimiser,batch_size=batch_size,vector_length=n_vectors)
-    trained_state, model = create_train_state(ensemble['models'][i],ensemble['init_rngs'][i],optimiser,vector_length=n_vectors)
+    trained_state, model = ut.create_train_state(ensemble['models'][i],ensemble['init_rngs'][i],optimiser,vector_length=n_vectors)
     ensemble['train_states'].append(trained_state)
     ensemble['models'][i] = model
     ensemble['outputs']['params'][i] = trained_state.params
 
 data_name = config['data_params']['dataset']
-output_name = f'MODEL_ENSEMBLE_{model_name}__OPTIM_{optim_name}__LR_{learning_rate}__BATCHSIZE_{batch_size}__DATA_{data_name}__LOSS_{loss_name}_alpha_2__SIZE_{config['data_params']['train_size']}'
+
+output_name = f"MODEL_ENSEMBLE_{model_name}__OPTIM_{optim_name}__LR_{learning_rate}__BATCHSIZE_{batch_size}__DATA_{data_name}__LOSS_{loss_name}_alpha_2__SIZE_{config['data_params']['train_size']}"
 
 print("Loading and saving to : ", output_name)
 
@@ -185,13 +183,13 @@ for epoch in tqdm(range(n_epochs)):
         trained_state = ensemble['train_states'][m]
         rng = ensemble['rngs'][m]
         
-        trained_state, train_metrics = train_one_epoch(trained_state, training_dataloader,  
+        trained_state, train_metrics = ut.train_one_epoch(trained_state, training_dataloader,  
                                                         # model, loss_functions['direction_interactive_vectorized'])
                                                     #  model, loss_functions['direction_interactive'])
                                                     # model, loss_functions['direction_interactive2'])
                                                     #  model, loss_functions['gradient_supervision'],rng)
                                                     #  model, loss_functions['direction'],rng)
-                                                    model, loss_functions[loss_name],rng)
+                                                    model, loss_functions.loss_functions[loss_name],rng)
         
         
         ensemble['outputs']['params'][m]=trained_state.params
@@ -209,8 +207,8 @@ for epoch in tqdm(range(n_epochs)):
     models = ensemble['models']
     ensemble_params = ensemble['outputs']['params']
     
-    train_metrics = generate_results_ensemble(train.X,train.Y,models,ensemble_params,name="Train")
-    val_metrics = generate_results_ensemble(validation.X,validation.Y,models,ensemble_params,name="Validation")
+    train_metrics = ut.generate_results_ensemble(train.X,train.Y,models,ensemble_params,name="Train")
+    val_metrics = ut.generate_results_ensemble(validation.X,validation.Y,models,ensemble_params,name="Validation")
     
 
 
@@ -232,7 +230,7 @@ for epoch in tqdm(range(n_epochs)):
 total_epochs = len(ensemble['outputs']['results']['Train']['accuracy'])
 
 if config['visualisation']['video']:
-    plotEpoch(ensemble['init_rngs'][0],
+    ut.plotEpoch(ensemble['init_rngs'][0],
           train.X['vector'],train.Y,
           ensemble['models'][0],
           plot_states,

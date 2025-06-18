@@ -5,7 +5,7 @@ import pandas as pd
 import pickle
 import jax.numpy as jnp
 import torch.utils.data as data
-from gradient_supervision_package.library.utilities import visualise_classes, expand_data, gen_knowledge, boundary_filter, jagged_lists_to_array, convert_to_list_of_lists
+from counterfactual_alignment.utilities import visualise_classes, expand_data, gen_knowledge, boundary_filter, jagged_lists_to_array, convert_to_list_of_lists
 from scipy.stats import multivariate_normal as mvn
 from sklearn import datasets as sk_datasets
 

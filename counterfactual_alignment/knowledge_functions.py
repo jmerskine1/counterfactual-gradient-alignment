@@ -5,7 +5,7 @@ from tqdm.auto import tqdm
 
 # FAT Forensics Counterfactual Explainer
 import fatf.transparency.predictions.counterfactuals as fatf_cf
-from gradient_supervision_package.library.utilities import get_rand_vec, get_unit_vec
+from counterfactual_alignment.utilities import get_rand_vec, get_unit_vec
 
 
 def gen_best_vec(x,cf_explainer):      
@@ -82,58 +82,50 @@ def counterfactual_vector(X, classifier, dims = 2, n_vec=3, n_samples=10, max_de
          'label'     :direction_label,
          'magnitude' :direction_distance}
     
-    return X, K
+    return K
 
 
 def counterfactual_vector_paths(X,Y, classifier, n_samples=3):
     print(f"Generating {n_samples} counterfactual samples per observation ...")
   # Lets generate the nearest point where the classification boundary changes
     # For now, generate the nearest n_vec counterfactuals, and keep the rest the same?
-    classes = np.unique(Y)
+    # classes = np.unique(Y)
+    classes = list(set(Y))
 
     cf_explainer = fatf_cf.CounterfactualExplainer(predictive_function = classifier,
                                                       dataset = X,
-                                                      default_numerical_step_size=0.1)
+                                                      numerical_indices=[0,1],
+                                                      default_numerical_step_size=0.1,
+                                                      max_counterfactual_length=1)
     
-    origins = directions = np.zeros((len(X),n_samples, len(X[0])))
+    origins = np.zeros((len(X),n_samples, len(X[0])))
     
-    direction_label = -np.ones((len(X),n_samples))
-    direction_distance = np.ones((len(X),n_samples))
-
+    directions = distances =  np.zeros((len(X), len(X[0])))
+    
     for i, x in tqdm(enumerate(X)):
+      
       counterfactual_class = int(next(c for c in classes if c != Y[i]))
       
-      dir, distance, prediction = cf_explainer.explain_instance(np.array(x),
+      cf, distance, label = cf_explainer.explain_instance(np.array(x),
                                                                 counterfactual_class,
-                                                                normalise_distance=True)
+                                                                normalise_distance=False)
       
-      delta = np.linspace(0.0, distance, n_samples)
-      
-      print('dir',dir)
-      print('delta',delta)
-      print('distance',distance)
-      origins = delta*np.repeat(jnp.expand_dims(dir, 1), n_samples, axis=1) + \
-        np.repeat(np.expand_dims(x, 1), n_samples, axis=1)
-      
-      print('test1')
-      for k, v in enumerate(origins):
+      if np.shape(cf)[0] > 1: # horrible fix for unknown behaviour where 2 cfs are generated instead of one - only seems to occur when x == cf
+          cf = [list(cf[0])]
 
-        predicted_class = classifier(origins.T)
-        # If the other class is along this line, assign label -1
-        if any(predicted_class != Y[i]):
-            direction_label[i, k] = -1 
-          
-        
-      dir, distance = gen_best_vec(x,cf_explainer)
-      directions[i, :, :] = dir
-      # single label version
-      direction_label[i,0] = -1
-      direction_distance[i,0] = distance
-  
+      if np.allclose(np.array(cf[0]),np.array(x)):
+         directions[i] = np.array([np.nan,np.nan])
+      else:  
+        directions[i],_ = get_unit_vec(x,cf[0])
+      
+      vector = cf - x
+      boundary = 0.1
+
+      for k,d in enumerate(np.linspace(0.0+boundary, 1-boundary, n_samples)):
+        origins[i,k,:] = x + d*vector
+    
     return {'origin'    :origins,
-            'vector'    :directions, 
-            'label'     :direction_label,
-            'magnitude' :direction_distance}
+            'vector'    :directions}
 
 def interactive_vector(dataset, dims = 2, n_vec=3, n_samples=10, max_delta=1.0):
     n = len(dataset.data.X)

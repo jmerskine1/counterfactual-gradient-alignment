@@ -1,24 +1,24 @@
 
 
-from gradient_supervision_package.library.utilities import (predict_wrapper, 
+from counterfactual_alignment.utilities import (predict_wrapper, 
                                                            get_unit_vec,
                                                            get_max_dimension_and_index, 
                                                            jagged_lists_to_array,
                                                            convert_to_list_of_lists, 
                                                            create_identical_matrix)
-from gradient_supervision_package.library.custom_models import custom_models
+from counterfactual_alignment.custom_models import custom_models
 import numpy as np
 import sys
 import jax.numpy as jnp
 import jax
 from jax import grad, vmap
 
+import torch
 import optax
 import yaml
+import os
 
-config_file = "/Users/jonathanerskine/University of Bristol/gradient_supervision/ecai_25/config.yaml"
-with open(config_file,'r') as file:
-    config = yaml.unsafe_load(file)[0]
+
 
 def cross_entropy_batch(params, batch_stats, model, batch, rng):
     X,Y,K = batch['X'],batch['Y'],batch['K']
@@ -41,26 +41,10 @@ def predict(params, model, x, rng):
 batched_predict = jax.vmap(predict,in_axes=(None,None,0,None))
 
 # @profile
-def cross_entropy(params, model, batch, rng):
-    X,Y,K = batch['X'],batch['Y'],batch['K']
-    # print(X['vector'][0],Y[0],'\n')
-    # model = custom_models['GPTattempt'](*(8,1))
-    # model = custom_models['GPTattempt']()
-    
-    # logits = batched_predict(params,model,X['vector'],rng)
-    
-    logits = model.apply({'params': params}, X['vector'], train=True, rngs={'dropout': rng}) #.squeeze(axis=-1)  
-    # print(np.shape(logits),np.shape(Y))
-    # print(Y,logits)
-    # Y = Y-1
-    loss = jnp.mean(optax.sigmoid_binary_cross_entropy(logits=logits, labels=Y))#.mean()
-
-    # print(X['text'][0])
-    # print(Y[0])    
-    # jax.debug.print(" Logits : {logits}, Labels : {labels}",logits=logits[0], labels=Y)
-    # jax.debug.print(" Loss : {loss}",loss=loss)
-    
-    # print([(label,logit.primal) for label,logit in list(zip(Y,logits))])
+def cross_entropy(params, model, batch, rng, config):
+    X,Y,K = batch[0],batch[1],batch[2]
+    logits = model.apply({'params': params}, X, train=True, rngs={'dropout': rng})
+    loss = jnp.mean(optax.sigmoid_binary_cross_entropy(logits=logits, labels=np.array(Y)))
     
     return loss, logits
 
@@ -179,7 +163,6 @@ def gradient_supervision_archive_2(params, model, batch, rng):
 
 
 def gradient_supervision_basic(params, model, batch, rng):
-    
     X,Y,K = batch['X'],batch['Y'],batch['K']
     
     logits = model.apply({'params': params}, X['vector'], train=True, rngs={'dropout': rng}) #.squeeze(axis=-1)  
@@ -321,8 +304,6 @@ def direction(params, model, batch, rng):
     
     ce_loss = jnp.mean(optax.sigmoid_binary_cross_entropy(logits=logits, labels=Y))
 
-    α = 1 - (1/config['hyperparams']['loss_mix'])
-
     grad_fn = grad(predict_wrapper,argnums=2, allow_int=False)
         # Vectorize the gradient function over the batch of inputs using jax.vmap
     batched_grad_fn = vmap(grad_fn, in_axes=(None, None, 0, None),out_axes=1)
@@ -334,7 +315,7 @@ def direction(params, model, batch, rng):
     map_dd = vmap(lambda a_row, b_col: jnp.dot(a_row, b_col), in_axes=(0, 1))
     
     directional_derivative = vmap(lambda K_slice: map_dd(K_slice, g), in_axes=1)(K['vector'])
-
+    
     # print("dd: ",np.shape(directional_derivative))
     # print("K: ",np.shape(K['vector']))
     # jax.debug.print("dd: {x}",x=directional_derivative)
@@ -345,7 +326,7 @@ def direction(params, model, batch, rng):
     # jax.debug.print("sign: {x}",x=sign)
     # jax.debug.print("d_loss: {x}",x=d_loss)
 
-
+    α = config['hyperparams']['loss_mix']
     loss = (1-α)*ce_loss + α*d_loss
 
     if False:
@@ -357,6 +338,191 @@ def direction(params, model, batch, rng):
     
     # loss = loss1
     return d_loss, logits
+
+# def direction_new(params, model, batch, rng):
+#     X = jnp.array(batch[0])  # shape (N, ...)
+#     Y = jnp.array(batch[1])  # shape (N,)
+#     K = jnp.array(batch[2])  # shape (N, 2)
+
+#     # Identify original examples
+#     k_mask = (K[:, 0] == 0) & (K[:, 1] == 0)  # True for original points
+
+#     # Forward pass over ALL data
+#     logits = model.apply({'params': params}, X, train=True, rngs={'dropout': rng})  # shape (N,)
+
+#     # Compute CE loss only on original examples
+#     if jnp.any(k_mask):
+#         ce_loss = jnp.mean(optax.sigmoid_binary_cross_entropy(
+#             logits=logits[k_mask],
+#             labels=Y[k_mask]
+#         ))
+#     else:
+#         ce_loss = 0.0  # or raise error
+
+#     α = config['hyperparams']['loss_mix']
+
+#     # Compute directional loss only if α > 0
+#     if α > 0:
+#         # Compute gradient of model output wrt input
+#         grad_fn = grad(predict_wrapper, argnums=2, allow_int=False)
+#         batched_grad_fn = vmap(grad_fn, in_axes=(None, None, 0, None), out_axes=1)
+#         g = batched_grad_fn(params, model, X, rng)  # shape (D, N)
+
+#         # Expand K to (N, 1, D) for broadcasting with grad
+#         K_exp = jnp.expand_dims(K, 1)  # shape (N, 1, D)
+
+#         # Dot product between K and grads
+#         directional_derivative = jnp.einsum('nid,idn->n', K_exp, g)
+
+#         # Directional loss — only for counterfactuals
+#         sign = jnp.sign(directional_derivative)
+#         d_loss = sign * Y * 2 - sign + 1
+#         d_loss = d_loss * (~k_mask)  # mask out original examples
+#         d_loss = jnp.mean(d_loss)
+#     else:
+#         d_loss = 0.0
+#     ce_loss = (1 - α) * ce_loss
+#     print("ALPHA",α)
+#     jax.debug.print("CE_LOSS: {x}",x = ce_loss)
+#     loss = (1 - α) * ce_loss + α * d_loss
+
+#     return loss, logits
+def loss_wrapper(params, model, batch, rng, config):
+    loss_terms = []
+    logits = []
+    losses = config['hyperparams']['loss_function']
+    losses = [cross_entropy]
+    if not isinstance(losses,list):
+        losses = [losses]
+
+    for loss_fn in losses:
+        loss_i,logits_i = loss_fn(params, model, batch, rng, config)
+        loss_terms.append(loss_i)
+        logits.append(logits_i)
+
+    return jnp.mean(jnp.stack(loss_terms)), jnp.stack(logits)
+
+def direction_new_aklt(params, model, batch, rng, config):
+    X = np.array(batch[0])  # shape (160, ...)
+    Y = np.array(batch[1])  # shape (160,)
+    K = np.array(batch[2])  # shape (160, 2)
+
+    # Identify original data points (not counterfactuals)
+    k_mask = (K[:, 0] == 0) & (K[:, 1] == 0)  # shape (160,) — True for original 40
+
+    # Single forward pass
+    logits = model.apply({'params': params}, X, train=True, rngs={'dropout': rng})  # shape (160, ...)
+    
+    # Compute CE loss only for original examples
+    if jnp.sum(k_mask) > 0:
+        ce_logits = logits[k_mask]
+        ce_labels = Y[k_mask]
+        ce_loss = jnp.mean(optax.sigmoid_binary_cross_entropy(logits=ce_logits, labels=ce_labels))
+    else:
+        ce_loss = 0.0
+
+
+    # Compute directional derivative loss (only matters if α > 0)
+    if config['hyperparams']['loss_mix'] > 0:
+        grad_fn = grad(predict_wrapper, argnums=2, allow_int=False)
+        batched_grad_fn = vmap(grad_fn, in_axes=(None, None, 0, None), out_axes=1)
+        g = batched_grad_fn(params, model, X, rng)
+
+        map_dd = vmap(lambda a_row, b_col: jnp.dot(a_row, b_col), in_axes=(0, 1))
+        K_exp = np.expand_dims(K, 1)
+        directional_derivative = vmap(lambda K_slice: map_dd(K_slice, g), in_axes=1)(K_exp)
+
+        sign = jnp.sign(directional_derivative)
+        d_loss = sign * Y * 2 - sign + 1
+        d_loss = d_loss * (~k_mask)
+        d_loss = jnp.mean(d_loss)
+    else:
+        d_loss = 0.0
+
+    # Combine
+    α = config['hyperparams']['loss_mix']
+    ce_loss = (1 - α) * ce_loss
+    jax.debug.print("CE_LOSS: {x}",x = ce_loss)
+    print("ALPHA",α)    
+    loss = ce_loss + α * d_loss
+
+    # Return logits for original examples (to match `cross_entropy`)
+    return loss, logits
+
+
+def direction_new(params, model, batch, rng, config):
+
+    X,Y,K = np.array(batch[0]),np.array(batch[1]),np.array(batch[2])
+    
+    k_mask  = (K[:, 0] == 0) & (K[:, 1] == 0)
+    CE_X = X[k_mask]
+    CE_Y = Y[k_mask]
+    
+    logits = model.apply({'params': params}, X, train=True, rngs={'dropout': rng}) #.squeeze(axis=-1)  
+    ce_logits = logits[k_mask]
+    # ce_logits = model.apply({'params': params}, CE_X, train=True, rngs={'dropout': rng}) #.squeeze(axis=-1)  
+    x_inds = np.nonzero(k_mask)
+
+    ce_loss = optax.sigmoid_binary_cross_entropy(logits=ce_logits, labels=CE_Y)
+    # jax.debug.print("ce_loss: {x}",x=ce_loss)
+    # ce_loss = ce_loss[x_inds]
+    # jax.debug.print("ce_loss: {x}",x=ce_loss)
+    ce_loss = jnp.mean(ce_loss)
+
+    grad_fn = grad(predict_wrapper,argnums=2, allow_int=False)
+        # Vectorize the gradient function over the batch of inputs using jax.vmap
+    batched_grad_fn = vmap(grad_fn, in_axes=(None, None, 0, None),out_axes=1)
+
+    # Now call the batched gradient function on the entire input array
+    g = batched_grad_fn(params, model, X, rng)
+    
+    # The following could be made less comp.icated if we assume only counterfactual per example - as it is, it allows for K to be 2D
+    map_dd = vmap(lambda a_row, b_col: jnp.dot(a_row, b_col), in_axes=(0, 1))
+    K = np.expand_dims(K,1)
+
+    directional_derivative = vmap(lambda K_slice: map_dd(K_slice, g), in_axes=1)(K)
+
+    # jax.debug.print("directional_deriv: {x}",x=directional_derivative)
+    # sign = jnp.tanh(1e5*directional_derivative)
+    sign = jnp.sign(directional_derivative)
+    # jax.debug.print("sign: {x}",x=sign)
+    d_loss = sign*Y*2 - sign + 1
+    # jax.debug.print("d_loss: {x}",x=d_loss)
+    
+    not_k_mask = np.array([not b for b in k_mask]) # d_loss[x_inds] = 0
+    
+    d_loss = d_loss * not_k_mask
+    
+    d_loss = jnp.mean(d_loss)
+
+    # jax.debug.print("d_loss: {x}",x=d_loss)
+    # jax.debug.print("ce_loss: {x}",x=ce_loss)
+    # jax.debug.print("Y: {x}",x=Y)
+    # jax.debug.print("sign: {x}",x=sign)
+    
+
+    α = config['hyperparams']['loss_mix']
+    ce_loss = (1 - α) * ce_loss
+    jax.debug.print("CE_LOSS: {x}",x = ce_loss)
+    print("ALPHA",α)    
+    loss = ce_loss + α * d_loss
+    # jax.debug.print("loss: {x}",x=loss)
+    if False:
+        print('KMNASK',k_mask)
+        print("XINDS",x_inds)
+        print('sign: ',sign)
+        print('dloss: ',sign*Y*2 - sign + 1)
+        print("\nK: ",np.shape(K),K)
+        print("\nG: ",np.shape(g),g)
+        jax.debug.print("dd: {x}",x=np.shape(directional_derivative))
+        jax.debug.print("CE_LOSS: {x}",x = ce_loss)
+        jax.debug.print("D_LOSS: {x}",x = d_loss)
+        # jax.debug.print("SIGN: {x}",x = sign)
+        # jax.debug.print("Y: {x}",x = Y)
+        # jax.debug.print("LOSS: {x}",x = sign*Y*2 - sign + 1)
+    
+    
+    return loss, logits
 
 
 
@@ -600,6 +766,8 @@ def gradient_supervision_archive(hyperparams, model, params, batch):
     # return jnp.mean(optax.sigmoid_binary_cross_entropy(logits=logits, labels=label)), logits
 
 loss_functions = {'direction':direction,
+                  'loss_wrapper':loss_wrapper,
+                  'direction_new':direction_new,
              'cross_entropy':cross_entropy,
              'cross_entropy_batch':cross_entropy_batch,
              'cross_entropy_l2':cross_entropy_l2,
