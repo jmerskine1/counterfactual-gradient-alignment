@@ -127,6 +127,113 @@ def counterfactual_vector_paths(X,Y, classifier, n_samples=3):
     return {'origin'    :origins,
             'vector'    :directions}
 
+def counterfactual_feasible_vector_paths(X, Y, classifier, n_samples=3):
+    print(f"Generating {n_samples} counterfactual samples per observation ...")
+    classes = list(set(Y))
+
+    cf_explainer = fatf_cf.CounterfactualExplainer(
+        predictive_function=classifier,
+        dataset=X,
+        numerical_indices=[0, 1],
+        default_numerical_step_size=0.1,
+        max_counterfactual_length=1
+    )
+
+    origins = np.zeros((len(X), n_samples, len(X[0])))
+    directions = distances = np.zeros((len(X), len(X[0])))
+
+    for i, x in tqdm(enumerate(X)):
+        counterfactual_class = int(next(c for c in classes if c != Y[i]))
+
+        cf, distance, label = cf_explainer.explain_instance(
+            np.array(x),
+            counterfactual_class,
+            normalise_distance=False
+        )
+
+        if np.shape(cf)[0] > 1:
+            cf = [list(cf[0])]
+
+        cf_point = np.array(cf[0])
+        x = np.array(x)
+
+        if np.allclose(cf_point, x):
+            directions[i] = np.array([np.nan, np.nan])
+            continue
+
+        # Interpolate along x and compute y = x^2 to follow true distribution
+        x_start, x_end = sorted([x[0], cf_point[0]])
+        boundary = abs(x_end-x_start) * 0.05
+        
+        x_vals = np.linspace(x_start+boundary, x_end-boundary, n_samples)
+        
+        
+        for k, x_val in enumerate(x_vals):
+            y_val = x_val ** 2
+            origins[i, k, :] = [x_val, y_val]
+
+        # Vector from original x to cf (used for directional derivatives later)
+        directions[i], _ = get_unit_vec(x, cf_point)
+
+    return {
+        'origin': origins,
+        'vector': directions
+    }
+
+
+def counterfactual_feasible_moon_paths(X, Y, classifier, n_samples=3):
+    print(f"Generating {n_samples} counterfactual samples per observation ...")
+    classes = list(set(Y))
+
+    cf_explainer = fatf_cf.CounterfactualExplainer(
+        predictive_function=classifier,
+        dataset=X,
+        numerical_indices=[0, 1],
+        default_numerical_step_size=0.1,
+        max_counterfactual_length=1
+    )
+
+    origins = np.zeros((len(X), n_samples, len(X[0])))
+    directions = distances = np.zeros((len(X), len(X[0])))
+
+    for i, x in tqdm(enumerate(X)):
+        counterfactual_class = int(next(c for c in classes if c != Y[i]))
+
+        cf, distance, label = cf_explainer.explain_instance(
+            np.array(x),
+            counterfactual_class,
+            normalise_distance=False
+        )
+
+        if np.shape(cf)[0] > 1:
+            cf = [list(cf[0])]
+
+        cf_point = np.array(cf[0])
+        x = np.array(x)
+
+        if np.allclose(cf_point, x):
+            directions[i] = np.array([np.nan, np.nan])
+            continue
+
+        # Interpolate along x and compute y = x^2 to follow true distribution
+        x_start, x_end = sorted([x[0], cf_point[0]])
+        boundary = abs(x_end-x_start) * 0.05
+        
+        x_vals = np.linspace(x_start+boundary, x_end-boundary, n_samples)
+        
+        
+        for k, x_val in enumerate(x_vals):
+            y_val = x_val ** 2
+            origins[i, k, :] = [x_val, y_val]
+
+        # Vector from original x to cf (used for directional derivatives later)
+        directions[i], _ = get_unit_vec(x, cf_point)
+
+    return {
+        'origin': origins,
+        'vector': directions
+    }
+
 def interactive_vector(dataset, dims = 2, n_vec=3, n_samples=10, max_delta=1.0):
     n = len(dataset.data.X)
     directions = [np.empty((0,2)) for _ in range(n)]

@@ -14,6 +14,7 @@ from flax import linen as nn
 
 from tqdm.auto import tqdm
 
+import random
 import seaborn as sns
 import sys
 ## Imports for plotting
@@ -32,7 +33,9 @@ import csv
 from pathlib import Path
 from functools import partial
 
+import counterfactual_alignment.custom_models as cm
 from counterfactual_alignment.custom_models import custom_models
+
 from matplotlib.ticker import FormatStrFormatter
 from matplotlib.lines import Line2D
 
@@ -63,7 +66,7 @@ def pad_sequences_tf(sequences, maxlen, padding='post', value=0):
     )
 
 
-def combine_datasets(data1,data2):
+def combine_datasets_archive(data1,data2):
     
     X = {}
     for key in data1['X']:
@@ -77,6 +80,19 @@ def combine_datasets(data1,data2):
              'Y':np.append(data1['Y'],data2['Y']),
              'K':K}
 
+    return data3
+
+def combine_datasets(data1,data2):
+    
+    K = {}
+    for key in data1['K']:
+        K[key] = generic_append(data1['K'][key],data2['K'][key])
+
+    data3 = {'text':np.append(data1['text'],data2['text']),
+             'X':np.append(data1['X'],data2['X'],axis=0),
+             'Y':np.append(data1['Y'],data2['Y']),
+             'K':K}
+    
     return data3
 
 
@@ -143,27 +159,22 @@ def numpy_collate(batch):
     else:
         return jnp.array(batch)
 
-def custom_collate(batch):
-    
-    x_vec = [b['X']['vector'] for b in batch]
-    x_txt = [b['X']['text'] for b in batch]
+def imdb_collate(batch):
+    X = [b['X'] for b in batch]
+    text = [b['text'] for b in batch]
     labels = [b['Y'] for b in batch]
     k_txt = [b['K']['text'] for b in batch]
     k_vec = [b['K']['vector'] for b in batch]
     k_lab = [b['K']['label'] for b in batch]
     k_mag = [b['K']['magnitude'] for b in batch]
     
-    x_vec = jnp.stack(x_vec)
-    X = {'vector':x_vec,'text':x_txt}
-    labels = jnp.stack(labels)
-    # knowledge = {'text':k_txt,'vector':jnp.stack(k_vec),'label':k_lab,'magnitude':k_mag}
     knowledge = {'text':k_txt,'vector':jnp.stack([jnp.stack(k_v) for k_v in k_vec]),'label':k_lab,'magnitude':k_mag}
 
-    return{'X':X,'Y':labels,'K':knowledge}
+    return{'text':text,'X':X,'Y':labels,'K':knowledge}
 
 def custom_collate_2D(batch):
     
-    x_vec = [b['X']['vector'] for b in batch]
+    x_vec = [b['X'] for b in batch]
     
     labels = [b['Y'] for b in batch]
     
@@ -171,48 +182,13 @@ def custom_collate_2D(batch):
     k_lab = [b['K']['label'] for b in batch]
     k_mag = [b['K']['magnitude'] for b in batch]
     
-    x_vec = jnp.stack(x_vec)
-    X = {'vector':x_vec}
+    X = jnp.stack(x_vec)
     labels = jnp.stack(labels)
     # knowledge = {'text':k_txt,'vector':jnp.stack(k_vec),'label':k_lab,'magnitude':k_mag}
     knowledge = {'vector':jnp.stack([jnp.stack(k_v) for k_v in k_vec]),'label':k_lab,'magnitude':k_mag}
 
     return{'X':X,'Y':labels,'K':knowledge}
 
-# def custom_collate(batch):
-#     x_vec = [b['X']['vector'] for b in batch]
-#     x_txt = [b['X']['text'] for b in batch]
-#     labels = [b['Y'] for b in batch]
-#     k_txt = [b['K']['text'] for b in batch]
-#     k_vec = [b['K']['vector'] for b in batch]
-#     k_lab = [b['K']['label'] for b in batch]
-#     k_mag = [b['K']['magnitude'] for b in batch]
-
-#     # Print statements for debugging
-#     print('X:', len(x_vec[0]), 'Shape:', jnp.array(x_vec[0]).shape)
-#     print('K:', len(k_vec[0]), 'Shape:', jnp.array(k_vec[0]).shape)
-
-#     for k in k_vec:
-#        for cf in k:
-#           if any(math.isnan(x) for x in cf):
-#              print(cf)
-
-#     # Stack X['vector'] and Y as before
-#     x_vec = jnp.stack(x_vec)
-#     labels = jnp.stack(labels)
-
-#     # Handle stacking of K['vector'] for 3D arrays
-#     # If K['vector'] is 3D, stack directly along the first axis
-#     if len(k_vec[0].shape) == 3:
-#         k_vec_stacked = jnp.stack(k_vec)
-#     else:
-#         # Fallback in case it's not 3D, handle 2D or other cases
-#         k_vec_stacked = jnp.stack([jnp.stack(k_v) for k_v in k_vec])
-
-#     X = {'vector': x_vec, 'text': x_txt}
-#     knowledge = {'text': k_txt, 'vector': k_vec_stacked, 'label': k_lab, 'magnitude': k_mag}
-
-#     return {'X': X, 'Y': labels, 'K': knowledge}
 
 def get_rand_vec(dims):
     x = np.random.standard_normal(dims)
@@ -316,82 +292,81 @@ def visualise_classes(dataset,knowledge=True):
 
 
 
-c_palette = sns.palettes.color_palette()
-cmapList= list(colormaps)
-
-def plot_from_results_file(results, xlims = None, ylims = None, loss = False, labels=None):
-        if type(results) != list:
-                results = [results]
-        
-        cmaps = list(colormaps)
-        # Create figure and 3D axis
-        fig = plt.figure()
-        ax = fig.add_subplot(111)
-
-        
-        
-        
-        
-        linestyles = [ ':','-.', '--','-']
-
-        for i,results in enumerate(results):
-                col = c_palette[i]
-                # Create figure and 3D axis
-                
-                count = 0
-                for name, res in results.items():
-                        
-                        if labels:
-                                if i < len(labels):
-                                        name = f'{labels[i]} - {name}'
 
 
-                        accuracy = res['accuracy']
-                        if len(accuracy)==0:
-                                continue
-                        
-                        
-                        x = range(len(accuracy))
-                        line = ax.plot(x,accuracy,linestyle=linestyles[count],label=name, color=col)
-                        
-                        # Find the maximum accuracy and its corresponding x-value
-                        max_acc = np.max(accuracy)
-                        max_idx = np.argmax(accuracy)
+from matplotlib.lines import Line2D
 
-                        # Plot a marker at the maximum accuracy point using the line's color
-                        ax.plot(max_idx, max_acc, 'o', color=col, markersize=8)
+def plot_from_results_file(results, xlims=None, ylims=None, loss=False, labels=None):
+    if type(results) != list:
+        results = [results]
 
-                        # Add a label next to the marker, color coded to match the line color
-                        ax.text(1, max_acc, f'{max_acc*100:.1f}%', fontsize=10, 
-                                verticalalignment='bottom', horizontalalignment='right', 
-                                color=col)
-                        
-                        if 'train' in name.lower():
-                                if loss:
-                                        loss = res['losses']
-                                        x = range(len(loss))
-                                        # ax.plot(x,loss,linestyle=linestyles[count], color=col,alpha=0.)
-                                        ax.scatter(x,loss,marker='+', s=20, color=col,alpha=0.5)
-                                        
-                                
-                        count+=1
+    c_palette = sns.color_palette('hls', len(results))
+    linestyles = [':', '-.', '--', '-']
 
+    fig = plt.figure()
+    ax = fig.add_subplot(111)
+    ax.set_ylim(top=1.0)
 
-        
+    lambda_colors = {}  # Store λ : color mapping
+    custom_legend = [
+        Line2D([0], [0], color='black', linestyle='dotted', label='Train'),
+        Line2D([0], [0], color='black', linestyle='dashdot', label='Validation'),
+    ]
 
-        # Add legend and labels
-        ax.legend()
-        ax.set_xlabel('Epoch')
-        ax.set_ylabel('Accuracy')
-        
-        if xlims:
-                ax.set_xlim(xlims)
-        
-        if ylims:
-                ax.set_ylim(ylims)
+    for i, results_set in enumerate(results):
+        col = c_palette[i]
+        count = 0
 
-        plt.show()
-        return fig,ax
+        for name, res in results_set.items():
+            label = name
+            if labels and i < len(labels):
+                label = f'{labels[i]} - {name}'
+
+            accuracy = res['accuracy']
+            if len(accuracy) == 0:
+                continue
+
+            x = range(len(accuracy))
+            linestyle = linestyles[count % len(linestyles)]
+            line = ax.plot(x, accuracy, linestyle=linestyle, label=label, color=col)
+
+            # Max accuracy marker
+            max_acc = np.max(accuracy)
+            max_idx = np.argmax(accuracy)
+            ax.plot(max_idx, max_acc, 'o', color=col, markersize=8)
+            ax.text(1, max_acc, f'{max_acc*100:.1f}%', fontsize=10, 
+                    verticalalignment='bottom', horizontalalignment='right', color=col)
+
+            # Scatter Loss
+            if 'train' in name.lower() and loss:
+                losses = res['losses']
+                x_loss = range(len(losses))
+                ax.scatter(x_loss, losses, marker='+', s=20, color=col, alpha=0.5)
+
+            # Track unique λ colors
+            if labels and i < len(labels):
+                lambda_val = labels[i]
+                if lambda_val not in lambda_colors:
+                    lambda_colors[lambda_val] = col
+
+            count += 1
+
+    # Extend custom legend with unique λ colors
+    for lam, color in lambda_colors.items():
+        custom_legend.append(Line2D([0], [0], color=color, linestyle='-', label=f'λ = {lam}'))
+
+    ax.legend(handles=custom_legend, title="Legend", loc='center left', bbox_to_anchor=(1.0, 0.5))
+    ax.set_xlabel('Epoch')
+    ax.set_ylabel('Accuracy')
+
+    if xlims:
+        ax.set_xlim(xlims)
+    if ylims:
+        ax.set_ylim(ylims)
+
+    plt.tight_layout()
+    plt.show()
+    return fig, ax
 
 
 def visualise_classes_archive(data):
@@ -496,19 +471,20 @@ def compute_metrics(logits, labels):
     }
     return metrics
 
-def generate_results(data,model,params,name='Untitled'):
-        X = data[0]
-        Y = data[1]
+def generate_results(data,model,params,name='Untitled',verbose=False):
+        X = data['X']
+        Y = data['Y']
         logits = model.apply({'params':params},np.array(X))
         metrics = compute_metrics(logits,np.array(Y))
-        print(f"{name} Loss: {metrics['loss']}, {name} Accuracy: {metrics['accuracy'] * 100}")
+        if verbose:
+            print(f"{name} Loss: {metrics['loss']}, {name} Accuracy: {metrics['accuracy'] * 100}")
         return metrics
 
 def generate_results_ensemble(X,Y,models,params,name='Untitled'):
-        logits = np.zeros((len(models),len(X['vector'])))
+        logits = np.zeros((len(models),len(X)))
         
         for i, (model, param) in enumerate(list(zip(models,params))):
-            logits[i,:] = model.apply({'params':param},np.array(X['vector']),train=False)
+            logits[i,:],_ = model.apply({'params':param},np.array(X),train=False)
         
         logits = np.mean(logits,axis=0)
         metrics = compute_metrics(logits,np.array(Y))
@@ -543,6 +519,37 @@ def create_train_state_batch(model,init_rng,opt,batch_size = 128,vector_length=3
     # use MyTrainState for batch_norm
     return MyTrainState.create(apply_fn=model.apply, params=variables['params'], batch_stats=variables['batch_stats'], tx=opt), model
 
+def balanced_class_sample(X, y, n_per_class, seed=None, return_indices=False):
+    from collections import defaultdict
+    import random
+
+    if seed is not None:
+        random.seed(seed)
+
+    class_to_indices = defaultdict(list)
+    for idx, label in enumerate(y):
+        class_to_indices[label].append(idx)
+
+    sampled_indices = []
+    for label, indices in class_to_indices.items():
+        if len(indices) < n_per_class:
+            raise ValueError(f"Not enough samples in class {label} to draw {n_per_class}")
+        sampled_indices.extend(random.sample(indices, n_per_class))
+
+    sampled_indices = sorted(sampled_indices)
+    all_indices = set(range(len(y)))
+    remaining_indices = sorted(all_indices - set(sampled_indices))
+
+    if return_indices:
+        return sampled_indices, remaining_indices
+
+    X_sampled = np.array([X[i] for i in sampled_indices])
+    y_sampled = np.array([y[i] for i in sampled_indices])
+
+    X_remaining = np.array([X[i] for i in remaining_indices])
+    y_remaining = np.array([y[i] for i in remaining_indices])
+
+    return X_sampled, y_sampled, X_remaining, y_remaining
 # def create_train_state(model,init_rng,opt,batch_size = 128,vector_length=32):
     
 #     key = jax.random.PRNGKey(42)
@@ -569,7 +576,6 @@ def create_train_state_batch(model,init_rng,opt,batch_size = 128,vector_length=3
 #     # use MyTrainState for batch_norm
 #     return train_state.TrainState.create(apply_fn=model.apply, params=variables['params'],  tx=opt), model
 
-
 def create_train_state(model, opt, vector_length=768, embedding_dim=50, key = None):
     if key == None:
         key = jax.random.PRNGKey(42)
@@ -579,7 +585,8 @@ def create_train_state(model, opt, vector_length=768, embedding_dim=50, key = No
     init_rngs = {'params': main_key, 'dropout': dropout_key}
 
     # dummy_input = jax.random.normal(main_key, (1, vector_length, embedding_dim))
-    dummy_input = jax.random.normal(main_key, (1, vector_length))
+    # dummy_input = jax.random.normal(main_key, (1, vector_length))
+    dummy_input = jax.random.randint(main_key, (1, vector_length),minval=0, maxval=20000)
     
     variables = model.init(init_rngs, dummy_input)
 
@@ -667,11 +674,6 @@ def inference(params,model, data):
     # return y.squeeze(axis=-1)  
     return y
 
-def predict_wrapper(params, model, x, rng):
-    
-    y = model.apply({'params': params}, jnp.array([x]), train=True, rngs={'dropout': rng}) #.squeeze(axis=-1)  
-    # return y.squeeze(axis=-1)  
-    return y.squeeze(axis=-1)
 
 def predict(params, model, x, rng):
     y = model.apply({'params': params}, x, train=True, rngs={'dropout': rng}) #.squeeze(axis=-1)  
@@ -685,9 +687,14 @@ def close_event():
             plt.close() #timer calls this function after 3 seconds and closes the window 
 
 
-def plotEpoch(X, y, model, states, plot_type = None, name = 'untitled',key = None):
+def plotEpoch(X, y, model, states,K = None, plot_type = None, name = 'untitled',project_dir = None,key = None):
     if key == None:
         key = jax.random.PRNGKey(42)
+    
+    if project_dir:
+        pathname = project_dir
+    else:
+        pathname = os.getcwd()
 
     x_min, x_max = X[:, 0].min() - .5, X[:, 0].max() + .5
     y_min, y_max = X[:, 1].min() - .5, X[:, 1].max() + .5
@@ -695,11 +702,20 @@ def plotEpoch(X, y, model, states, plot_type = None, name = 'untitled',key = Non
     xx, yy = np.meshgrid(np.arange(lims[0][0], lims[0][1], 0.01),
                             np.arange(lims[1][0], lims[1][1], 0.01))
     points = np.stack([xx.ravel(), yy.ravel()]).T
+
+    cm = plt.cm.RdBu
+    cm_bright = ListedColormap(['#FF0000', '#0000FF'])
+    cm2 = plt.cm.PuOr
+
+    normal_pal = sns.color_palette("Set1",(len(np.unique(y))+1)*2)
+    pastel_pal = sns.color_palette("Pastel1",(len(np.unique(y))+1)*2)
+    normal_pal.as_hex()
+    pastel_pal.as_hex()
     
     for epoch,state in enumerate(states):
       
     #   model = custom_models[hyperparams['model']](*hyperparams['model_io'])
-      Z = model.apply({'params': state.params}, points)
+      Z,_ = model.apply({'params': state.params}, points)
 
       grad_map = jax.vmap(jax.grad(predict_wrapper, argnums=2), in_axes=(None, None, 0, None), out_axes=0)
       
@@ -710,14 +726,37 @@ def plotEpoch(X, y, model, states, plot_type = None, name = 'untitled',key = Non
       timer = fig.canvas.new_timer(interval = 500) #creating a timer object and setting an interval of 3000 milliseconds
       timer.add_callback(close_event)
 
-      cm = plt.cm.RdBu
-      cm_bright = ListedColormap(['#FF0000', '#0000FF'])
-      cm2 = plt.cm.PuOr
+      
       
       im = ax1.contourf(xx, yy, magnitude.reshape(xx.shape), cmap=cm2, alpha=.8)
       fig.colorbar(im, ax=ax1)
       ax1.scatter(X[:, 0], X[:, 1], c=y, cmap=cm_bright,
                       edgecolors='k')
+      
+      if K:
+            grad_fn = jax.grad(predict_wrapper_v2,argnums=1, allow_int=False)
+    
+            # Vectorize the gradient function over the batch of inputs using jax.vmap
+            batched_grad_fn = jax.vmap(grad_fn, in_axes=(None, 0, None),out_axes=1)
+            
+            # Now call the batched gradient function on the entire input array
+            
+            g_y = batched_grad_fn(state.params, X, key) * (2*jnp.array(y) - 1)[:,jnp.newaxis].T
+            # g_y = batched_grad_fn(state.params, X, key) 
+            EPS = 1e-8
+            
+            map_cosine = jax.vmap(lambda a_row, b_col: 1 - (jnp.dot(a_row, b_col) /
+                                    (jnp.linalg.norm(a_row) * jnp.linalg.norm(b_col) + EPS)), in_axes=(0, 1))
+            k_vector = jnp.multiply(jnp.array(K['vector']),jnp.array(K['magnitude']).reshape(-1,1,1))
+            
+            cosine_diff = jax.vmap(lambda K_slice: map_cosine(K_slice, g_y), in_axes=1)(k_vector)
+            
+            for i,gy in enumerate(g_y.T): 
+            
+                ax1.quiver(X[i,0],X[i,1],gy[0],gy[1],angles='xy', scale_units = 'xy',
+                                          color=pastel_pal[y[i]],width=1/200,alpha=1.0,headlength=4,headwidth=4,scale=1)
+                ax1.quiver(X[i,0],X[i,1],k_vector[i,0,0],k_vector[i,0,1],angles='xy', scale_units = 'xy',
+                                          color=normal_pal[y[i]],width=1/200,alpha=1.0,headlength=4,headwidth=4,scale=1)
       ax1.set_xlim(lims[0])
       ax1.set_ylim(lims[1])
 
@@ -731,9 +770,10 @@ def plotEpoch(X, y, model, states, plot_type = None, name = 'untitled',key = Non
       
 
       if plot_type == 'video':
-        os.makedirs("video",exist_ok=True)
-        os.makedirs("video/tmp",exist_ok=True)
-        plt.savefig(os.getcwd() + "/video/tmp/file%02d.png" % epoch)  
+        
+        os.makedirs(pathname+"/video",exist_ok=True)
+        os.makedirs(pathname+"/video/tmp",exist_ok=True)
+        plt.savefig(pathname + "/video/tmp/file%02d.png" % epoch)  
         plt.close()
       else:  
         timer.start()
@@ -742,10 +782,10 @@ def plotEpoch(X, y, model, states, plot_type = None, name = 'untitled',key = Non
     if plot_type == 'video':
       
       subprocess.call([
-              'ffmpeg', '-framerate', '3','-loglevel', 'quiet', '-i',os.getcwd() + "/video/tmp/file%02d.png", '-r', '30', '-pix_fmt', 'yuv420p','-y',
-              os.getcwd() + f"/video/{name}.mp4"])
+              'ffmpeg', '-framerate', '3','-loglevel', 'quiet', '-i',pathname + "/video/tmp/file%02d.png", '-r', '30', '-pix_fmt', 'yuv420p','-y',
+              pathname + f"/video/{name}.mp4"])
       
-      for file_name in glob.glob(os.getcwd() + "/video/tmp/*.png" ):
+      for file_name in glob.glob(pathname + "/video/tmp/*.png" ):
           os.remove(file_name)
     
 
@@ -863,7 +903,7 @@ def interactivePlot2():
 
 def gen_knowledge(dataset, knowledge_func):
     # dataset.data.K['vector'],dataset.data.K['label'],dataset.data.K['magnitude'] = (knowledge_func(dataset,n_vec=dataset.n_vec)) Need to correct old stuff from this
-    dataset.data.K = knowledge_func(dataset.data.X['vector'],dataset.data.optimum_classifier,n_vec=dataset.n_vec) # to this
+    dataset.data.K = knowledge_func(dataset.data.X,dataset.data.optimum_classifier,n_vec=dataset.n_vec) # to this
 
 def save_stats(dict,name, path = os.getcwd()+'/results'):
   print(name)
@@ -899,19 +939,28 @@ def gen_savepath(data_params,hyperparams):
   return savepath
 
 
+def assert_grads_equal(grads1, grads2, tol=1e-6):
+    """Asserts that all leaves in two gradient PyTrees are equal within a tolerance."""
+    def allclose(x, y):
+        return jnp.allclose(x, y, rtol=tol, atol=tol)
+
+    comparison = jax.tree_util.tree_map(allclose, grads1, grads2)
+    assert jax.tree_util.tree_all(comparison), "Gradient dictionaries are not equal."
 # @jax.jit  # Jit the function for efficiency
 # @profile
-def train_step(state, model, batch, loss_function, rng, config):
-    
-    (_, logits), grads = jax.value_and_grad(loss_function, has_aux=True, argnums=0, allow_int=True)(state.params, model, batch, rng, config)
+def train_step(state, model, batch, loss_function, rng):
+    # (_, logits), grads = jax.value_and_grad(loss_function, has_aux=True, argnums=0, allow_int=True)(state.params, model, batch, rng, config)
+    _, grads = jax.value_and_grad(loss_function, has_aux=False, argnums=0)(state.params, model, batch, rng)
     
     if False:
-      for path, grad in traverse_util.flatten_dict(grads).items():
-          norm = jnp.linalg.norm(grad)
-          print(".".join(path), norm)
+        
+        for path, grad in traverse_util.flatten_dict(grads).items():
+            norm = jnp.linalg.norm(grad)
+            print(" ".join(path), "NORM: ",norm,"MAX grad: ", jnp.max(jnp.array(grad)),"| MEAN grad: ", jnp.mean(jnp.array(grad)))
     
     state = state.apply_gradients(grads=grads)
-    metrics = compute_metrics(logits=logits, labels=np.array(batch[1]))
+    logits,_  = model.apply({'params': state.params}, np.array(batch['X']), train=False, rngs={'dropout': rng})
+    metrics = compute_metrics(logits=logits, labels=np.array(batch['Y']))
 
     return state, metrics
 
@@ -933,18 +982,18 @@ def train_step_batch(state, model, batch, loss_function, rng):
     return state, metrics
 
 
-def train_one_epoch(state, data_loader, model, loss_function, rng, config, visualise=False):
+def train_one_epoch(state, dataset, model, loss_function, rng, visualise=False):
 
     batch_metrics = {'loss':[],'accuracy':[]}
     
-    for batch in data_loader:
-        # from custom datsets - getitem: batch -> X, y, direction, direction label, direction distance 
-        
-        state, metrics = train_step(state, model, batch, loss_function, rng, config)
-        
-        # batch_metrics.append(metrics)
-        batch_metrics['loss'].append(metrics['loss'])
-        batch_metrics['accuracy'].append(metrics['accuracy'])
+
+    # from custom datsets - getitem: batch -> X, y, direction, direction label, direction distance 
+    
+    state, metrics = train_step(state, model, dataset, loss_function, rng)
+    
+    # batch_metrics.append(metrics)
+    batch_metrics['loss'].append(metrics['loss'])
+    batch_metrics['accuracy'].append(metrics['accuracy'])
 
     batch_metrics_np = jax.device_get(batch_metrics)  # pull from the accelerator onto host (CPU)
     
@@ -1011,3 +1060,151 @@ def create_identical_matrix(array):
     return jnp.where(jnp.isnan(array), 0, 1)
 
 
+import flax.linen as nn
+import jax.numpy as jnp
+
+class Classifier(nn.Module):
+    output_dim: int = 1  # binary classification output
+    
+    @nn.compact
+    def __call__(self, avg_embed):
+        # avg_embed: [batch_size, embed_dim]
+        logits = nn.Dense(self.output_dim)(avg_embed)  # linear layer
+        logits = logits.squeeze(-1)  # [batch_size]
+        return logits
+
+class EmbeddingOnlyModel(nn.Module):
+    @nn.compact
+    def __call__(self, embedded_inputs):  # embedded_inputs: (batch, embed_dim)
+        logits = nn.Dense(features=1, name='linear1')(embedded_inputs)
+
+        return nn.sigmoid(logits).squeeze(axis=-1)
+
+def classifier_apply(params, avg_embed):
+    model = EmbeddingOnlyModel()
+    return model.apply({'params': params}, avg_embed)
+
+def predict_wrapper_embedding_archive(params,embedding):
+        linear_params = {'linear1': params}
+        # Apply classifier part of model on averaged embedding
+        return classifier_apply(linear_params, embedding) #.squeeze(-1)
+
+embedding_only = EmbeddingOnlyModel()
+
+# def predict_wrapper_embedding(linear_params,embedding):
+#         return embedding_only.apply({'params': linear_params}, embedding)
+        
+testModel = cm.SimpleClassifier_v2(8,1)
+
+def predict_wrapper(params, model, x, rng):
+    y,_ = model.apply({'params': params}, jnp.array([x]), train=True, rngs={'dropout': rng}) #.squeeze(axis=-1)  
+    # return y.squeeze(axis=-1)  
+    return y.squeeze(axis=-1)
+
+
+def predict_wrapper2(params, model, x, rng):
+    y,_ = model.apply({'params': params}, jnp.array([x]), train=True, rngs={'dropout': rng}) #.squeeze(axis=-1)  
+    # return y.squeeze(axis=-1)  
+    return y
+
+def predict_wrapper_v2(params, x, rng):
+    y,_ = testModel.apply({'params': params}, jnp.array([x]), train=True, rngs={'dropout': rng}) #.squeeze(axis=-1)  
+    # return y.squeeze(axis=-1)  
+    return y.squeeze(axis=-1)
+
+
+def predict_wrapper_embedding(linear_params,embedding):
+        return embedding_only.apply({'params': linear_params}, embedding)
+        
+
+# def masked_average_embeddings(embedded_tokens, tokens, padding_idx=0):
+#     print(np.shape(embedded_tokens), np.shape(tokens))
+#     mask = (tokens != padding_idx).astype(jnp.float32)  # (batch, seq_len)
+#     mask = jnp.expand_dims(mask, axis=-1)              # (batch, seq_len, 1)
+    
+#     masked_embeds = embedded_tokens * mask              # zero out padding embeddings
+    
+#     sum_embeds = jnp.sum(masked_embeds, axis=1)         # sum over seq_len
+#     lengths = jnp.sum(mask, axis=1) + 1e-8               # lengths per sample
+    
+#     avg_embeds = sum_embeds / lengths                    # average embeddings
+    
+#     return avg_embeds  # (batch, embed_dim)
+def masked_average_embeddings(embedded_tokens, tokens, padding_idx=-1):
+    # embedded_tokens: (batch_size, seq_len, embed_dim)
+    # tokens: (batch_size, seq_len)
+    
+    mask = (tokens != padding_idx).astype(jnp.float32)  # (batch_size, seq_len)
+    mask = mask[..., None]  # expand dims to (batch_size, seq_len, 1) for broadcasting
+
+    masked_embeddings = embedded_tokens * mask  # zero-out embeddings of padding tokens
+    summed = jnp.sum(masked_embeddings, axis=1)  # sum over seq_len -> (batch_size, embed_dim)
+    counts = jnp.sum(mask, axis=1)  # count non-padding tokens (batch_size, 1)
+
+    # Avoid division by zero
+    counts = jnp.maximum(counts, 1.0)
+
+    avg_embed = summed / counts  # (batch_size, embed_dim)
+    return avg_embed
+
+
+def embed_and_average(params, tokens):
+    tokens = jnp.array(tokens)  # Ensure tokens is a JAX array
+    # params['embed']['embedding'] is your embedding matrix of shape (vocab_size, embed_dim)
+    embeddings = params['embed']['embedding']  
+    # embedded_tokens = embeddings[tokens]  # (batch, seq_len, embed_dim)
+    embedded_tokens = jnp.take(embeddings, tokens, axis=0)
+    
+    avg_embed = masked_average_embeddings(embedded_tokens, tokens, padding_idx=-1)
+    return avg_embed
+
+def embed_and_average_batchK(params, K_vectors):
+    # K_vectors: (batch, num_K, seq_len)
+    batch_size, num_K, seq_len = K_vectors.shape
+
+    # Flatten batch and num_K dimensions for embedding
+    K_flat = K_vectors.reshape(batch_size * num_K, seq_len)  # (batch*num_K, seq_len)
+
+    # Embed and average using your existing function
+    avg_embed_flat = embed_and_average(params, K_flat)  # (batch*num_K, embed_dim)
+
+    # Reshape back to (batch, num_K, embed_dim)
+    avg_embed = avg_embed_flat.reshape(batch_size, num_K, -1)  # (batch, num_K, embed_dim)
+
+    return avg_embed
+
+# def cosine_similarity_batch(X, Y, eps=1e-8):
+#         # g_y: (batch, embed_dim)
+#         # K_avg: (batch, num_K, embed_dim)
+#         g_y_expanded = jnp.expand_dims(X, axis=1)  # (batch, 1, embed_dim)
+        
+#         dot = jnp.sum(g_y_expanded * K_avg, axis=-1)  # (batch, num_K)
+#         norm_g_y = jnp.linalg.norm(g_y_expanded, axis=-1)  # (batch, 1)
+#         norm_K = jnp.linalg.norm(K_avg, axis=-1)  # (batch, num_K)
+        
+#         cos_sim = 1 - dot / (norm_g_y * norm_K + eps)  # cosine distance (lower = more similar)
+#         return cos_sim  # (batch, num_K)
+
+def cosine_distance_batch(X, K, eps=1e-8):
+    """
+    Compute cosine similarity between each X[i] and all K[i, j].
+
+    Args:
+        X: (batch, dim)
+        K: (batch, max_k, dim)
+        eps: small constant to avoid division by zero
+
+    Returns:
+        cos_sim: (batch, max_k)
+    """
+    # Normalize along the last axis (vector dimension)
+    X_norm = X / (jnp.linalg.norm(X, axis=-1, keepdims=True) + eps)           # (batch, dim)
+    K_norm = K / (jnp.linalg.norm(K, axis=-1, keepdims=True) + eps)           # (batch, max_k, dim)
+
+    # Expand X so it can broadcast against K
+    X_expanded = X_norm[:, None, :]                                           # (batch, 1, dim)
+
+    # Cosine similarity is just the dot product after normalization
+    cos_sim = jnp.sum(X_expanded * K_norm, axis=-1)                           # (batch, max_k)
+
+    return 1 - cos_sim # cosine distance

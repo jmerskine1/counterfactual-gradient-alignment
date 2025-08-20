@@ -3,15 +3,15 @@ data_params:
   dataset: XOR
   knowledge_func: counterfactual
   max_delta: 1.0
-  n_vec: 1
-  train_size: 20
+  n_vec: 3
+  train_size: 10
   validation_size: 100
 hyperparams:
   batch_size: 8
-  epochs: 50
-  learning_rate: 0.05
-  loss_function: loss_wrapper
-  loss_mix: 1.0
+  epochs: 20
+  learning_rate: 0.1
+  loss_function: combined_loss
+  loss_mix: 0.0
   model: simple
   model_io: !!python/tuple
   - 8

@@ -4,7 +4,7 @@
 import flax
 from flax import linen as nn
 import jax.numpy as np
-from jax import random
+from jax import random, debug
 from flax.core.frozen_dict import unfreeze
 from jax.nn.initializers import glorot_normal, normal
 
@@ -46,6 +46,27 @@ class SimpleClassifier(nn.Module):
         x = self.linear2(x)
   
         return x.squeeze(axis=-1)
+
+
+class SimpleClassifier_v2(nn.Module):
+    num_hidden : int   # Number of hidden neurons
+    num_outputs : int  # Number of output neurons
+
+    def setup(self):
+        # Create the modules we need to build the network
+        # nn.Dense is a linear layer
+        self.linear1 = nn.Dense(features=self.num_hidden)
+        self.linear2 = nn.Dense(features=self.num_outputs) 
+        self.dropout = nn.Dropout(rate=0.5)
+
+    def __call__(self, x,train=False):
+        x = self.linear1(x)      
+        x = nn.tanh(x)
+        x = self.dropout(x, deterministic= not train)
+        x = self.linear2(x)
+  
+        return (x.squeeze(axis=-1)), None
+
 
 
 class CNN(nn.Module):
@@ -319,31 +340,53 @@ class BagOfWordsClassifier(nn.Module):
 
 
 class BagOfWordsClassifierSimple(nn.Module):
-    vocabulary_size: int = 20001
+    vocabulary_size: int = 20002
     embedding_size: int = 50
-
+    
     def setup(self):
-        self.linear1 = nn.Dense(features=1, kernel_init=nn.initializers.glorot_normal())
+        self.linear1 = nn.Dense(features=1, kernel_init=nn.initializers.glorot_normal())#,bias_init=nn.initializers.normal(stddev=0.1))
         self.embed = nn.Embed(num_embeddings=self.vocabulary_size, features=self.embedding_size,
                               embedding_init=nn.initializers.glorot_normal())
-        self.dropout = nn.Dropout(rate=0.5)
+        self.dropout = nn.Dropout(rate=0.9)
 
     def __call__(self, x, train=False):
+        
+        x = np.asarray(x)  # Ensure x is a numpy array
+        # debug.print('x: shape: {sx},{maxx},{minx}',sx=np.shape(x),maxx = np.max(x),minx = np.min(x))
         # x: (batch_size, seq_length), assumed padded with 0
         mask = (x != 0).astype(np.float32)  # Padding mask
-        
+
+        # debug.print('mask: {x}',x=np.mean(mask))
         embeddings = self.embed(x)  # (batch_size, seq_length, embedding_size)
-        
+        # debug.print('embeddings: {x}',x=np.mean(embeddings))
         embeddings = embeddings * mask[..., None]
-
+        # debug.print('embeddings2: {x}',x=np.mean(embeddings))
         summed = np.sum(embeddings, axis=1)
+
         lengths = np.sum(mask, axis=1, keepdims=True)
-        x = summed / np.maximum(lengths, 1)
+        # debug.print('shape of input: {y}\n lengths: {x}',x=np.shape(lengths),y = np.shape(x))
+        x = summed / np.maximum(lengths, 1) 
 
-        x = self.dropout(x, deterministic=not train)
-        logits = self.linear1(x)
-        return logits.squeeze(axis=-1)
+        x_drop = self.dropout(x, deterministic=not train)
+        logits = self.linear1(x_drop)
+        return logits.squeeze(axis=-1), x
 
+
+class SentimentModel(nn.Module):
+    vocab_size: int = 20000
+    embed_size: int = 50
+
+    @nn.compact
+    def __call__(self, x, mask):
+        # x: (batch_size, 32) token indices
+        x = nn.Embed(num_embeddings=self.vocab_size, features=self.embed_size)(x)
+        # x: (batch_size, 32, 50)
+        # Average over tokens, ignoring padding
+        x = np.sum(x * mask[..., None], axis=1) / np.sum(mask, axis=1, keepdims=True)
+        # x: (batch_size, 50)
+        x = nn.Dense(1)(x)
+        x = nn.sigmoid(x)
+        return x
 
 # Define the model
 class BagOfWordsClassifierSingle(nn.Module):

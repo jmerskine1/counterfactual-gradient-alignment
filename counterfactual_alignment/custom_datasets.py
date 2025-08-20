@@ -21,6 +21,7 @@ class customDataset(data.Dataset):
         seed  - The seed to use to create the PRNG state with which we want to generate the data points
     """
     
+    self.text = data['text']
     self.X = data['X']
     self.Y = data['Y']
     self.K = data['K']
@@ -30,7 +31,8 @@ class customDataset(data.Dataset):
     
     
   def drop(self, idx):
-    self.X             = {key:np.delete(self.X[key],idx,axis=0) for key in self.X}
+    self.text          = np.delete(self.text,idx)
+    self.X             = np.delete(self.X,idx)
     self.Y             = np.delete(self.Y,idx)
     
     # for i in range(len(self.K['vector'][idx])):
@@ -42,7 +44,9 @@ class customDataset(data.Dataset):
 
   def __getitem__(self, idx):
     
-    X = {key:self.X[key][idx] for key in self.X}
+    # X = {key:self.X[key][idx] for key in self.X}
+    text = self.text[idx]
+    X = self.X[idx]
     Y = self.Y[idx]
     K = {key:self.K[key][idx] for key in self.K}
 
@@ -53,7 +57,7 @@ class customDataset(data.Dataset):
     #         self.data.K['vector'][idx],
     #         self.data.K['label'][idx],
     #         self.data.K['magnitude'][idx])
-    return {'X':X,'Y':Y,'K':K} #,'knowledge': K}
+    return {'text':text,'X':X,'Y':Y,'K':K} #,'knowledge': K}
 
   def __len__(self):
     return len(self.Y)
@@ -69,9 +73,11 @@ class XOR():
                 | Y     : Class label ([0,1...n])
                 | K     : Knowledge - empty dict, for storing directional info
         """        
-        self.X = {'vector': np.array(rng.randint(low=0, high=2, size=(size, 2)).astype(np.float32))}
-        self.Y = np.array((self.X['vector'].sum(axis=1) == 1).astype(np.int32))
-        self.X['vector'] += rng.normal(loc=0.0, scale=0.1, size=self.X['vector'].shape) # Add gaussian noise
+        
+        self.X = np.array(rng.randint(low=0, high=2, size=(size, 2)).astype(np.float32))
+        self.Y = np.array((self.X.sum(axis=1) == 1).astype(np.int32))
+        self.X += rng.normal(loc=0.0, scale=0.1, size=self.X.shape) # Add gaussian noise
+        
         self.K = {'vector':None}
 
         # self.K = np.empty_like(self.Y)
@@ -122,8 +128,8 @@ class Gaussian():
 
         class_sizes = list(np.append([base]*(self.num_classes-1),[base+leftover]))
         
-        self.X = {'vector':np.concatenate([rng.multivariate_normal(np.array(self.class_means[i]), 
-                                    self.covariances[i], class_sizes[i]) for i in range(self.num_classes)])}
+        self.X = np.concatenate([rng.multivariate_normal(np.array(self.class_means[i]), 
+                                    self.covariances[i], class_sizes[i]) for i in range(self.num_classes)])
         self.Y = np.concatenate([[i]*class_sizes[i] for i in range(self.num_classes)])
 
         self.K = {}
@@ -166,10 +172,28 @@ class TwoMoons():
 
     def optimum_classifier(self, z, probabilities=True):
         """
-        Inputs  | z:      x,y coordinates of data to be classified.
-        Outputs | probs:  array of probabilities for each class for input data.
+        Deterministic hardcoded classifier for the make_moons dataset.
+        Takes a single input vector z = [x1, x2] and returns class 0 or 1.
+
+        Parameters:
+            z (np.ndarray): Input 2D point (shape: (2,)).
+
+        Returns:
+            int: Predicted label (0 or 1).
         """
-        return None
+        z = np.asarray(z)
+        x1 = z[:,0]
+        x2 = z[:,1]
+
+
+        # Approximate lower moon: label = 0 if below boundary
+        lower_moon = x1 < 1.0
+        decision_boundary = 0.5 * np.sin(np.pi * x1)
+
+        predictions = np.where(x2 > decision_boundary, 1, 0)
+
+        return predictions
+        
 
 
 class Circles():
@@ -181,7 +205,7 @@ class Circles():
                 | Y     : Class label ([0,1...n])
                 | K     : Knowledge - empty dict, for storing directional info
         """
-        self.X, self.Y = sk_datasets.make_circles(size,random_state=rng)
+        self.X, self.Y = sk_datasets.make_circles(size,random_state=rng,noise=0.1)
         self.K = {}
         # self.K = np.empty_like(self.Y)
 
@@ -230,14 +254,15 @@ class genCustomDataset(data.Dataset):
 
 
   def drop(self, idx):
-    self.data.X['vector']             = np.delete(self.data.X['vector'],idx,axis=0)
+    # self.data.X['vector']             = np.delete(self.data.X['vector'],idx,axis=0)
+    self.data.X             = np.delete(self.data.X,idx)
     self.data.Y             = np.delete(self.data.Y,idx)
     self.data.K['vector']   = np.delete(self.data.K['vector'],idx,axis=0)
     self.data.K['label']    = np.delete(self.data.K['label'],idx)
     self.data.K['magnitude']= np.delete(self.data.K['magnitude'],idx)
 
   def __getitem__(self, idx):
-    X = {'vector':self.data.X['vector'][idx]}
+    X = self.data.X[idx] #{'vector':self.data.X['vector'][idx]}
     Y = self.data.Y[idx]
     try:
       K = {key:self.data.K[key][idx] for key in self.data.K}

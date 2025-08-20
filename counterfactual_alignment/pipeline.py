@@ -32,7 +32,7 @@ class Pipeline:
 
         if config is not None:
             self.config = config
-            print(self.config)
+            
         else:
             with open("config.yaml", 'r') as file:
                 self.config = yaml.unsafe_load(file)
@@ -90,7 +90,7 @@ class Pipeline:
             f"LR_{self.learning_rate}",
             f"BATCHSIZE_{self.batch_size}",
             f"DATA_{self.data_description}",
-            f"SIZE_{len(self.datasets['train'].tensors[0])}",
+            f"SIZE_{self.config['data_params']['train_size']}",
             f"LOSS_{self.loss_name}",
             f"ALPHA_{self.config['hyperparams']['loss_mix']}",
             f"METHOD_{self.method_description}"
@@ -121,7 +121,7 @@ class Pipeline:
         for epoch in tqdm(range(n_epochs)):
             self.trained_state, _ = ut.train_one_epoch(
                 self.trained_state,
-                self.train_dataloader,
+                self.datasets['train'],
                 self.model,
                 loss_functions.loss_functions[self.loss_name],
                 self.model_key,
@@ -131,13 +131,13 @@ class Pipeline:
             plot_states.append(self.trained_state)
 
             train_metrics = ut.generate_results(
-                self.datasets['train'].tensors,
+                self.datasets['train']['original'],
                 self.model,
                 self.trained_state.params,
                 name="Train"
             )
             val_metrics = ut.generate_results(
-                self.datasets['test'].tensors,
+                self.datasets['test'],
                 self.model,
                 self.trained_state.params,
                 name="Validation"
@@ -161,8 +161,8 @@ class Pipeline:
 
         if self.config['visualisation']['video']:
             ut.plotEpoch(
-                self.datasets['test'].tensors[0],
-                self.datasets['test'].tensors[1],
+                self.datasets['test']['X'],
+                self.datasets['test']['Y'],
                 self.model,
                 plot_states,
                 plot_type='video',
