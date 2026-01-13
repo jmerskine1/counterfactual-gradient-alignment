@@ -1,0 +1,100 @@
+[
+    {
+        "loss_function": "multiclass_cross_entropy",
+        "alpha": 0.0,
+        "train_size": 50,
+        "accuracy": 67.16,
+        "duration": 41.511322259902954
+    },
+    {
+        "loss_function": "multiclass_cross_entropy",
+        "alpha": 0.0,
+        "train_size": 100,
+        "accuracy": 73.1,
+        "duration": 44.86177396774292
+    },
+    {
+        "loss_function": "multiclass_split_loss_embedding_relu",
+        "alpha": 0.3,
+        "train_size": 50,
+        "accuracy": 68.26,
+        "duration": 136.4945900440216
+    },
+    {
+        "loss_function": "multiclass_split_loss_embedding_relu",
+        "alpha": 0.3,
+        "train_size": 100,
+        "accuracy": 74.48,
+        "duration": 178.37016105651855
+    },
+    {
+        "loss_function": "multiclass_split_loss_embedding_relu",
+        "alpha": 0.5,
+        "train_size": 50,
+        "accuracy": 66.98,
+        "duration": 126.00869393348694
+    },
+    {
+        "loss_function": "multiclass_split_loss_embedding_relu",
+        "alpha": 0.5,
+        "train_size": 100,
+        "accuracy": 74.8,
+        "duration": 204.53446316719055
+    },
+    {
+        "loss_function": "multiclass_split_loss_embedding_relu",
+        "alpha": 0.7,
+        "train_size": 50,
+        "accuracy": 68.92,
+        "duration": 135.8479208946228
+    },
+    {
+        "loss_function": "multiclass_split_loss_embedding_relu",
+        "alpha": 0.7,
+        "train_size": 100,
+        "accuracy": 76.58,
+        "duration": 167.35694122314453
+    },
+    {
+        "loss_function": "multiclass_split_loss_embedding_softplus",
+        "alpha": 0.3,
+        "train_size": 50,
+        "accuracy": 64.16,
+        "duration": 147.96782684326172
+    },
+    {
+        "loss_function": "multiclass_split_loss_embedding_softplus",
+        "alpha": 0.3,
+        "train_size": 100,
+        "accuracy": 76.98,
+        "duration": 196.37419891357422
+    },
+    {
+        "loss_function": "multiclass_split_loss_embedding_softplus",
+        "alpha": 0.5,
+        "train_size": 50,
+        "accuracy": 66.72,
+        "duration": 125.95669078826904
+    },
+    {
+        "loss_function": "multiclass_split_loss_embedding_softplus",
+        "alpha": 0.5,
+        "train_size": 100,
+        "accuracy": 74.76,
+        "duration": 179.27128195762634
+    },
+    {
+        "loss_function": "multiclass_split_loss_embedding_softplus",
+        "alpha": 0.7,
+        "train_size": 50,
+        "accuracy": 66.08,
+        "duration": 153.01842999458313
+    },
+    {
+        "loss_function": "multiclass_split_loss_embedding_softplus",
+        "alpha": 0.7,
+        "train_size": 100,
+        "accuracy": 74.06,
+        "duration": 190.77564811706543
+    }
+]

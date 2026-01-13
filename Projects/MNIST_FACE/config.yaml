@@ -8,16 +8,16 @@ data_params:
   validation_size: 100
   control: False
   active_sampling: True
-  init_samplesize: 20
+  init_samplesize: 100
   sample_size: 10
   diversity: 0.8
 hyperparams:
   batch_size: 8
   embedding_size: 64
-  epochs: 2
+  epochs: 5
   learning_rate: 0.0001 #0.0001
-  loss_function: multiclass_split_loss_embedding #multiclass_cross_entropy  #multiclass_split_gs_embedding 
-  loss_mix: 0.898
+  loss_function: multiclass_split_loss_embedding_softplus
+  loss_mix: 0.7
   model:  optimized_mnist_conv #simple_mnist_conv #manifold_robust_mnist_conv # # #mnist_conv_gemini # mnist_vit #
   model_io: !!python/tuple
   - 8
