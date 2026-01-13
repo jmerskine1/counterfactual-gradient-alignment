@@ -6,13 +6,18 @@ data_params:
   n_vec: 2
   train_size: 10
   validation_size: 100
+  active_sampling: False
+  sample_size: 60
+  diversity: 0.8
 hyperparams:
   batch_size: 32
-  epochs: 40
-  learning_rate: 0.01
-  loss_function:  gradient_supervision_embedding 
-  loss_mix: 20
-  model: simple
+  vocabulary_size: 20002
+  embedding_size: 50
+  epochs: 50
+  learning_rate: 0.0001
+  loss_function:  cross_entropy #combined_loss_embedding #
+  loss_mix: 0.5
+  model: bag_of_words
   model_io: !!python/tuple
   - 8
   - 1
@@ -20,6 +25,7 @@ hyperparams:
   - 80
   - 1
   momentum: 0.5
+  n_models: 6
   seed: 100
 visualisation:
   draw_eval: true

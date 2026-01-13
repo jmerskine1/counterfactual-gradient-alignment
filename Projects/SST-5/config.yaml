@@ -1,0 +1,37 @@
+data_params:
+  boundary_only: false
+  dataset: integer_len32_size100 #paths/mnist_paths_data_split_50paths #Projects/MNIST_FACE/data/paths/ 
+  knowledge_func: counterfactual
+  max_delta: 1.0
+  n_vec: 2
+  train_size: 20
+  validation_size: 100
+  control: False
+  active_sampling: True
+  init_samplesize: 100
+  sample_size: 20
+  diversity: 0.8
+hyperparams:
+  batch_size: 8
+  embedding_size: 32
+  epochs: 100
+  learning_rate: 0.0001 #0.0001
+  loss_function: multiclass_cross_entropy #multiclass_split_loss_embedding # # # #  #multiclass_split_gs_embedding 
+  loss_mix: 0.5
+  model:  multiclass_bag_of_words #mnist_conv_gemini # mnist_vit #
+  model_io: !!python/tuple
+  - 8
+  - 1
+  model_size: !!python/tuple
+  - 8
+  - 1
+  momentum: 0.5
+  n_models: 1
+  seed: 100
+  vocabulary_size: 20001
+visualisation:
+  draw_eval: true
+  plot_epoch: false
+  video: false
+  visualise: true
+  visualise_embeddings: false

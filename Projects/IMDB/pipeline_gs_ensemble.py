@@ -59,7 +59,7 @@ Initialise Parameters
 """
 
 
-n_models = 1
+n_models = 6
 n_epochs = config['hyperparams']['epochs']
 overwrite = True
 
@@ -122,7 +122,8 @@ adadelta = optax.adadelta(
 )
 scheduled_adadelta = optax.adadelta(learning_rate=learning_rate_schedule, weight_decay=0.05)
 
-optimiser = adamw
+# optimiser = adamw
+optimiser = adadelta
 # optimiser = adam_opt
 # optimiser = scheduled_adadelta
 
@@ -133,7 +134,7 @@ optim_name = [oname for oname in [name for name, value in locals().items() if va
 ensemble = {
             # 'models':[BagOfWordsClassifier(20000,50)]*n_models,
             # 'models': [SentimentModel(20000,50)]*n_models,
-            'models':[BagOfWordsClassifierSimple(20002,50)]*n_models,
+            'models':[BagOfWordsClassifierSimple(20001,50)]*n_models,
             'rngs':jax.random.split(rng,n_models),
             'init_rngs':jax.random.split(init_rng,n_models),
             'train_states':[],

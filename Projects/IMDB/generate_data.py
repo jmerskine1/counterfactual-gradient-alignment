@@ -20,7 +20,7 @@ import re
 from sklearn.feature_extraction.text import TfidfVectorizer,CountVectorizer
 import scipy
 
-max_length = 32
+max_length = 16
 
 """
 Data Preprocessing Functions
@@ -378,6 +378,8 @@ train_label = np.array(train_data['Sentiment'].map({'Positive': 1, 'Negative': 0
 dev_paired = process_data(dev_paired)
 test_paired = process_data(test_paired)
 train_paired = process_data(train_paired)
+
+
 
 data_for_vectorizer = train_paired.apply(lambda tokens: " ".join(tokens))
 vectorizer = CountVectorizer(max_features=20000)

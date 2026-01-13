@@ -1,28 +1,37 @@
 data_params:
   boundary_only: false
-  dataset: XOR
+  dataset: Circles
   knowledge_func: counterfactual
   max_delta: 1.0
-  n_vec: 3
-  train_size: 10
-  validation_size: 100
+  n_vec: 1
+  train_size: 8
+  validation_size: 200
+  control: False
+  active_sampling: False
+  init_samplesize: 10
+  sample_size: 5
+  diversity: 0.8
 hyperparams:
-  batch_size: 8
-  epochs: 20
-  learning_rate: 0.1
-  loss_function: combined_loss
-  loss_mix: 0.0
-  model: simple
+  batch_size: 32
+  embedding_size: 512
+  epochs: 100
+  learning_rate: 0.001
+  loss_function: multiclass_split_loss #multiclass_cross_entropy # # # # # # # # #
+  loss_mix: 0.91
+  model: simple_v2
   model_io: !!python/tuple
   - 8
-  - 1
+  - 2
   model_size: !!python/tuple
   - 80
   - 1
   momentum: 0.5
-  seed: 100
+  n_models: 1
+  seed: 1
 visualisation:
   draw_eval: true
   plot_epoch: false
   video: false
-  visualise: true
+  visualise: False
+  visualise_embeddings: false
+
