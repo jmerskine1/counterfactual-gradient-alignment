@@ -172,3 +172,15 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+
+
+# Video files
+
+*video/
+
+# Embeddings and datasets (generated per project)
+**/data/
+
+**/model_outputs/
+
+**/outputs/

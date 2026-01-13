@@ -4,7 +4,9 @@
 import flax
 from flax import linen as nn
 import jax.numpy as np
-from jax import random
+
+import jax
+from jax import debug
 from flax.core.frozen_dict import unfreeze
 from jax.nn.initializers import glorot_normal, normal
 
@@ -45,7 +47,50 @@ class SimpleClassifier(nn.Module):
         x = self.dropout(x, deterministic= not train)
         x = self.linear2(x)
   
-        return x.squeeze(axis=-1)
+        return x, None 
+    
+
+class MultiClassClassifier(nn.Module):
+    num_hidden : int   # Number of hidden neurons
+    num_outputs : int  # Number of output neurons
+
+    def setup(self):
+        # Create the modules we need to build the network
+        # nn.Dense is a linear layer
+        self.linear1 = nn.Dense(features=self.num_hidden,kernel_init=glorot_normal())
+        self.linear2 = nn.Dense(features=self.num_outputs,kernel_init=glorot_normal()) 
+        self.dropout = nn.Dropout(rate=0.1)
+
+    def __call__(self, x,train=False):
+        x = self.linear1(x)      
+        x = nn.relu(x)
+        # x = self.dropout(x, deterministic= not train)
+        x = self.linear2(x)
+  
+  
+        return x, None
+
+
+class SimpleClassifier_v2(nn.Module):
+    num_hidden : int   # Number of hidden neurons
+    num_outputs : int  # Number of output neurons
+
+    def setup(self):
+        # Create the modules we need to build the network
+        # nn.Dense is a linear layer
+        self.linear1 = nn.Dense(features=self.num_hidden,kernel_init=glorot_normal())
+        self.linear2 = nn.Dense(features=self.num_outputs,kernel_init=glorot_normal()) 
+        self.dropout = nn.Dropout(rate=0.1)
+
+    def __call__(self, x,train=False):
+        x = self.linear1(x)      
+        x = nn.relu(x)
+        # x = self.dropout(x, deterministic= not train)
+        x = self.linear2(x)
+        
+  
+        return x, None
+
 
 
 class CNN(nn.Module):
@@ -319,31 +364,745 @@ class BagOfWordsClassifier(nn.Module):
 
 
 class BagOfWordsClassifierSimple(nn.Module):
-    vocabulary_size: int = 20001
+    vocabulary_size: int = 20002
     embedding_size: int = 50
 
+    
     def setup(self):
-        self.linear1 = nn.Dense(features=1, kernel_init=nn.initializers.glorot_normal())
+        self.linear1 = nn.Dense(features=1, kernel_init=nn.initializers.glorot_normal())#,bias_init=nn.initializers.normal(stddev=0.1))
         self.embed = nn.Embed(num_embeddings=self.vocabulary_size, features=self.embedding_size,
                               embedding_init=nn.initializers.glorot_normal())
         self.dropout = nn.Dropout(rate=0.5)
 
     def __call__(self, x, train=False):
+        
+        x = np.asarray(x)  # Ensure x is a numpy array
+        # debug.print('x: shape: {sx},{maxx},{minx}',sx=np.shape(x),maxx = np.max(x),minx = np.min(x))
         # x: (batch_size, seq_length), assumed padded with 0
         mask = (x != 0).astype(np.float32)  # Padding mask
-        
+
+        # debug.print('mask: {x}',x=np.mean(mask))
         embeddings = self.embed(x)  # (batch_size, seq_length, embedding_size)
         
+        # debug.print('embeddings: {x}',x=np.mean(embeddings))
         embeddings = embeddings * mask[..., None]
-
+        # jax.debug.print("embeds: {}",np.shape(embeddings))
+        # debug.print('embeddings2: {x}',x=np.mean(embeddings))
         summed = np.sum(embeddings, axis=1)
+
         lengths = np.sum(mask, axis=1, keepdims=True)
-        x = summed / np.maximum(lengths, 1)
+        # jax.debug.print("lengths: {}",np.shape(lengths))
+        # debug.print('shape of input: {y}\n lengths: {x}',x=np.shape(lengths),y = np.shape(x))
+        x = summed / np.maximum(lengths, 1) 
+        # jax.debug.print("x: {}",x)
+        x_drop = self.dropout(x, deterministic=not train)
+        logits = self.linear1(x_drop)
+        # jax.debug.print('logits:{x}',x=logits)
+        # return logits.squeeze(axis=-1), x
+        
+        return logits, x
 
-        x = self.dropout(x, deterministic=not train)
+
+# class MulticlassEmbeddingOnlyModel(nn.Module):
+#     num_classes: int
+    
+#     @nn.compact
+#     def __call__(self, embedded_inputs,train=False):  # embedded_inputs: (batch, embed_dim)
+#         logits = nn.Dense(features=self.num_classes, name='linear1')(embedded_inputs)
+
+#         return nn.sigmoid(logits),None
+    
+
+class MulticlassEmbeddingOnlyModel(nn.Module):
+    num_classes: int
+    def setup(self):
+        self.linear1 = nn.Dense(features=self.num_classes, kernel_init=nn.initializers.glorot_normal())#,bias_init=nn.initializers.normal(stddev=0.1))
+        self.dropout = nn.Dropout(rate=0.5)
+    
+    def __call__(self, x_embed,train=False):  # embedded_inputs: (batch, embed_dim) 
+        # Dropout + classifier head
+        x_embed = nn.relu(x_embed)
+        x_drop = self.dropout(x_embed, deterministic=not train)
+        logits = self.linear1(x_drop)             # (batch, num_classes)
+
+        return logits, x_embed
+    
+    
+    
+
+
+class BagOfWordsClassifierMultiClass(nn.Module):
+    num_classes: int
+    vocabulary_size: int = 20002
+    embedding_size: int = 50
+    
+    
+    def setup(self):
+        self.linear1 = nn.Dense(features=self.num_classes, kernel_init=nn.initializers.glorot_normal())#,bias_init=nn.initializers.normal(stddev=0.1))
+        self.embed = nn.Embed(num_embeddings=self.vocabulary_size, features=self.embedding_size,
+                              embedding_init=nn.initializers.glorot_normal())
+        self.dropout = nn.Dropout(rate=0.8)
+
+    def __call__(self, x, train=False):
+        
+        x = np.asarray(x)  # Ensure x is a numpy array
+        # debug.print('x: shape: {sx},{maxx},{minx}',sx=np.shape(x),maxx = np.max(x),minx = np.min(x))
+        # x: (batch_size, seq_length), assumed padded with 0
+        mask = (x != 0).astype(np.float32)  # Padding mask
+
+        # debug.print('mask: {x}',x=np.shape(mask))
+        embeddings = self.embed(x)  # (batch_size, seq_length, embedding_size)
+        # debug.print('embeddings: {x}',x=np.shape(embeddings))
+        embeddings = embeddings * mask[..., None]
+        # debug.print('embeddings2: {x}',x=np.shape(embeddings))
+        summed = np.sum(embeddings, axis=1)
+        # debug.print('summed: {x}',x=np.shape(summed))
+        lengths = np.sum(mask, axis=1, keepdims=True)
+        # debug.print('shape of input: {y}\n lengths: {x}',x=np.shape(lengths),y = np.shape(x))
+        x = summed / np.maximum(lengths, 1) 
+        # debug.print('x after avg: {x}',x=np.shape(x))
+        x_drop = self.dropout(x, deterministic=not train)
+        logits = self.linear1(x_drop)
+        # debug.print('logits:{x}',x=np.shape(logits))
+        # debug.print('logits:{x}',x=np.isnan(logits).any())
+        return logits, x
+
+import flax.linen as nn
+import jax.numpy as jnp
+
+class MNISTClassifier(nn.Module):
+    num_classes: int = 10
+    hidden_dim: int = 64   # size of intermediate embedding
+
+    def setup(self):
+        # Dense layer maps raw 784-dim pixels into hidden embedding
+        self.embed_layer = nn.Dense(
+            features=self.hidden_dim,
+            kernel_init=nn.initializers.glorot_normal()
+        )
+        self.dropout = nn.Dropout(rate=0.5)
+
+        # Classifier head
+        self.linear1 = nn.Dense(
+            features=self.num_classes,
+            kernel_init=nn.initializers.glorot_normal()
+        )
+
+    def __call__(self, x, train=False):
+        """
+        x shape: (batch, 28, 28) with values in [0, 255]
+        """
+        x = jnp.array(x)  # Ensure x is a JAX array
+        # Normalize pixel intensities to [0, 1]
+        x = x.astype(jnp.float32) / 255.0
+
+        # Flatten into vector
+        x = x.reshape(x.shape[0], -1)  # (batch, 784)
+
+        # Project into embedding space
+        x_embed = self.embed_layer(x)             # (batch, hidden_dim)
+        x_embed = nn.relu(x_embed)                # nonlinearity
+
+        # Dropout + classifier head
+        x_drop = self.dropout(x_embed, deterministic=not train)
+        logits = self.linear1(x_drop)             # (batch, num_classes)
+
+        return logits, x_embed
+
+class MNISTConvClassifier(nn.Module):
+    num_classes: int = 10
+    hidden_dim: int = 64   # size of intermediate embedding
+
+    def setup(self):
+        self.conv1 = nn.Conv(features=32, kernel_size=(3,3))
+        self.conv2 = nn.Conv(features=64, kernel_size=(3,3))
+        self.fc = nn.Dense(features=128)
+        self.linear1 = nn.Dense(features=self.num_classes)
+    
+    def __call__(self, x, train=False):
+        x = jnp.array(x)  # Ensure x is a JAX array
+        # Normalize pixel intensities to [0, 1]
+        x = x.astype(jnp.float32) / 255.0
+
+        # x = x / 255.0
+        x = x[..., None]  # add channel dim
+        x = nn.relu(self.conv1(x))
+        x = nn.max_pool(x, window_shape=(2, 2), strides=(2, 2))
+        x = nn.relu(self.conv2(x))
+        x = nn.max_pool(x, window_shape=(2, 2), strides=(2, 2))
+        x = x.reshape(x.shape[0], -1)
+        x = nn.relu(self.fc(x))
         logits = self.linear1(x)
-        return logits.squeeze(axis=-1)
+        return logits, x
 
+
+
+# Define the CNN architecture as a Flax nn.Module
+class MNISTConvClassifierGemini(nn.Module):
+    num_classes: int = 10
+    hidden_dim: int = 128  # size of the high-level feature embedding
+
+    def setup(self):
+        # --- Feature Extraction Layers (CNN) ---
+        # 1. First Convolutional Block
+        self.conv1 = nn.Conv(
+            features=32,
+            kernel_size=(3, 3),
+            kernel_init=nn.initializers.lecun_normal()
+        )
+        # 2. Second Convolutional Block
+        self.conv2 = nn.Conv(
+            features=64,
+            kernel_size=(3, 3),
+            kernel_init=nn.initializers.lecun_normal()
+        )
+
+        # --- Embedding Layer ---
+        # This Dense layer maps the flattened feature maps into the final embedding vector.
+        self.feature_layer = nn.Dense(
+            features=self.hidden_dim,
+            kernel_init=nn.initializers.glorot_normal()
+        )
+        
+        # --- Regularization and Classifier Head ---
+        self.dropout = nn.Dropout(rate=0.4)
+        
+        # Classifier head: Maps the embedding to the final class logits
+        self.linear1 = nn.Dense(
+            features=self.num_classes,
+            kernel_init=nn.initializers.glorot_normal()
+        )
+
+    def __call__(self, x: jnp.ndarray, train: bool = False):
+        """
+        x shape: (batch, 28, 28) or (batch, 784) with values in [0, 255]
+        """
+        # --- 1. Preprocessing ---
+        x = jnp.array(x)
+        
+        # Handle flattened input (B, 784) by reshaping to (B, 28, 28)
+        if x.ndim == 2 and x.shape[-1] == 784:
+            batch_size = x.shape[0]
+            # Ensure the input is 28x28 before convolutions
+            x = x.reshape((batch_size, 28, 28))
+
+        # Normalize pixel intensities to [0, 1]
+        # x = x.astype(jnp.float32) / 255.0
+        
+        # Add channel dimension (1 for grayscale). Input should now be (B, 28, 28).
+        # Reshape from (B, 28, 28) to (B, 28, 28, 1)
+        x = jnp.expand_dims(x, axis=-1)
+
+        # --- 2. Feature Extraction (CNN) ---
+        
+        # Conv 1 -> ReLU -> MaxPool
+        x = self.conv1(x)
+        x = nn.relu(x)
+        x = nn.max_pool(x, window_shape=(2, 2), strides=(2, 2))
+        
+        # Conv 2 -> ReLU -> MaxPool
+        x = self.conv2(x)
+        x = nn.relu(x)
+        x = nn.max_pool(x, window_shape=(2, 2), strides=(2, 2))
+        
+        # Flatten feature maps into vector
+        x = x.reshape((x.shape[0], -1))  # (batch, flattened_size)
+
+        # --- 3. Embedding Generation ---
+        # Project into the high-level embedding space (your requested point of interest)
+        features = self.feature_layer(x)
+        x_embed = nn.relu(features)  # Apply non-linearity to the embedding
+
+        # --- 4. Classification ---
+        # Dropout + classifier head
+        x_drop = self.dropout(x_embed, deterministic=not train)
+        logits = self.linear1(x_drop)  # (batch, num_classes)
+
+        # Return both the logits and the meaningful feature embedding
+        return logits, x_embed
+
+class MNISTConvClassifierGemini2(nn.Module):
+    num_classes: int = 10
+    hidden_dim: int = 128  # final Dense embedding before classifier
+    dropout_rate: float = 0.4
+
+    @nn.compact
+    def __call__(self, x, train: bool = False):
+        x = jnp.array(x)
+        # Reshape flattened input
+        if x.ndim == 2 and x.shape[-1] == 784:
+            x = x.reshape((x.shape[0], 28, 28, 1))
+        else:
+            x = jnp.expand_dims(x, axis=-1)  # (B,28,28,1)
+        
+        # --- First conv block ---
+        x = nn.Conv(features=32, kernel_size=(3,3))(x)
+        x = nn.relu(x)
+        x = nn.Conv(features=32, kernel_size=(3,3))(x)
+        x = nn.relu(x)
+        x = nn.Conv(features=32, kernel_size=(5,5), strides=(2,2), padding='SAME')(x)
+        x = nn.relu(x)
+        x = nn.Dropout(rate=self.dropout_rate)(x, deterministic=not train)
+
+        # --- Second conv block ---
+        x = nn.Conv(features=64, kernel_size=(3,3))(x)
+        x = nn.relu(x)
+        x = nn.Conv(features=64, kernel_size=(3,3))(x)
+        x = nn.relu(x)
+        x = nn.Conv(features=64, kernel_size=(5,5), strides=(2,2), padding='SAME')(x)
+        x = nn.relu(x)
+        x = nn.Dropout(rate=self.dropout_rate)(x, deterministic=not train)
+
+        # --- Dense embedding ---
+        x = x.reshape((x.shape[0], -1))  # flatten
+        embedding = nn.Dense(features=self.hidden_dim)(x)
+        embedding = nn.relu(embedding)
+        embedding = nn.Dropout(rate=self.dropout_rate)(embedding, deterministic=not train)
+
+        # --- Classifier head ---
+        logits = nn.Dense(features=self.num_classes,name='linear1')(embedding)
+
+        return logits, embedding
+
+class SimpleMNISTConv(nn.Module):
+    num_classes: int = 10
+    hidden_dim: int = 128  # final Dense embedding before classifier
+    
+
+    @nn.compact
+    def __call__(self, x, train=False):
+        # x = x.reshape((x.shape[0],28,28,1))
+        # Reshape flattened input
+        if x.ndim == 2 and x.shape[-1] == 784:
+            x = x.reshape((x.shape[0], 28, 28, 1))
+        else:
+            x = jnp.expand_dims(x, axis=-1)  # (B,28,28,1)
+        
+        x = nn.Conv(features=64, kernel_size=(3,3))(x)
+        x = nn.relu(x)
+        x = nn.Conv(features=32, kernel_size=(3,3))(x)
+        x = nn.relu(x)
+        x = nn.max_pool(x, (2,2))
+        x = x.reshape((x.shape[0], -1))
+        embedding = nn.Dense(self.hidden_dim)(x)
+        x = nn.relu(embedding)
+        logits = nn.Dense(self.num_classes,name='linear1')(x)
+        
+        return logits, embedding
+
+
+import jax.numpy as jnp
+from flax import linen as nn
+
+class ImprovedMNISTConv(nn.Module):
+    num_classes: int = 10
+    hidden_dim: int = 64  # Reduced to prevent overfitting on small data
+    dropout_rate: float = 0.1
+
+    @nn.compact
+    def __call__(self, x, train=False):
+        # 1. Flexible Input Handling
+        if x.ndim == 2:
+            x = x.reshape((x.shape[0], 28, 28, 1))
+        elif x.ndim == 3:
+            x = jnp.expand_dims(x, axis=-1)
+
+        # 2. Feature Extraction with GroupNorm
+        # GroupNorm is better than BatchNorm for small batches/small data
+        x = nn.Conv(features=32, kernel_size=(3, 3), use_bias=False)(x)
+        x = nn.GroupNorm(num_groups=4)(x)
+        x = nn.relu(x)
+        
+        x = nn.Conv(features=32, kernel_size=(3, 3), strides=(2, 2), use_bias=False)(x)
+        x = nn.GroupNorm(num_groups=4)(x)
+        x = nn.relu(x)
+
+        # 3. Global Pooling (Generalization Key)
+        # Instead of flattening a huge tensor, we pool to preserve spatial invariance
+        x = jnp.mean(x, axis=(1, 2)) 
+
+        # 4. Bottleneck Embedding
+        # Dropout here helps ensure the model doesn't rely on single 'lucky' features
+        embedding = nn.Dense(self.hidden_dim)(x)
+        x = nn.Dropout(rate=self.dropout_rate, deterministic=not train)(embedding)
+        x = nn.relu(x)
+        
+        logits = nn.Dense(self.num_classes, name='classifier')(x)
+        
+        return logits, embedding
+
+class RobustMNISTConv(nn.Module):
+    num_classes: int = 10
+    hidden_dim: int = 128
+    
+    @nn.compact
+    def __call__(self, x, train: bool = False):
+        # 1. Input Normalization (Crucial for small data)
+        # Ensure pixel values are roughly -1 to 1 or 0 to 1
+        if x.ndim == 2:
+            x = x.reshape((x.shape[0], 28, 28, 1))
+        
+        # 2. Convolutional Block 
+        # Added explicit kernel_init for faster convergence
+        x = nn.Conv(features=32, kernel_size=(3, 3), 
+                    kernel_init=nn.initializers.he_normal())(x)
+        x = nn.LayerNorm()(x) # LayerNorm is often more stable than GroupNorm in JAX
+        x = nn.relu(x)
+        x = nn.max_pool(x, window_shape=(2, 2), strides=(2, 2))
+
+        x = nn.Conv(features=64, kernel_size=(3, 3), 
+                    kernel_init=nn.initializers.he_normal())(x)
+        x = nn.LayerNorm()(x)
+        x = nn.relu(x)
+        x = nn.max_pool(x, window_shape=(2, 2), strides=(2, 2))
+
+        # 3. Transition to Dense
+        x = x.reshape((x.shape[0], -1)) 
+        
+        # 4. The Embedding Layer (Your counterfactual surface)
+        embedding = nn.Dense(self.hidden_dim, kernel_init=nn.initializers.he_normal())(x)
+        x = nn.relu(embedding)
+        
+        # Dropout can cause 'failure to learn' if used too early or with small data
+        if train:
+            x = nn.Dropout(rate=0.2, deterministic=False)(x)
+            
+        logits = nn.Dense(self.num_classes, kernel_init=nn.initializers.glorot_normal())(x)
+        
+        return logits, embedding
+
+class OptimizedMNISTConv(nn.Module):
+    num_classes: int = 10
+    hidden_dim: int = 128
+
+    @nn.compact
+    def __call__(self, x, train=False):
+        # 1. Precise Reshaping
+        if x.ndim == 2:
+            x = x.reshape((x.shape[0], 28, 28, 1))
+        
+        # 2. Reverting to your specific Conv stack (it clearly works for your data)
+        # We add 'Same' padding to prevent edge-information loss
+        x = nn.Conv(features=64, kernel_size=(3, 3), padding='SAME', name='conv1')(x)
+        x = nn.relu(x)
+        
+        x = nn.Conv(features=32, kernel_size=(3, 3), padding='SAME', name='conv2')(x)
+        x = nn.relu(x)
+        
+        # Pooling can sometimes be too aggressive on small data
+        x = nn.max_pool(x, (2, 2))
+        
+        # 3. Flattening (Restoring the high-dim connection)
+        x = x.reshape((x.shape[0], -1))
+        
+        # 4. The Embedding Layer
+        # We use a 'Leaky ReLU' here. This ensures that even for counterfactual 
+        # directions that move 'away' from the data, the gradient doesn't die.
+        embedding = nn.Dense(self.hidden_dim, name='fc_embed')(x)
+        x = nn.leaky_relu(embedding, negative_slope=0.01)
+        
+        # 5. Final Classification
+        logits = nn.Dense(self.num_classes, name='linear1')(x)
+        
+        return logits, embedding
+    
+import jax.numpy as jnp
+from flax import linen as nn
+
+class SurpassingMNIST(nn.Module):
+    num_classes: int = 10
+    hidden_dim: int = 128
+
+    @nn.compact
+    def __call__(self, x, train=False):
+        if x.ndim == 2: x = x.reshape((x.shape[0], 28, 28, 1))
+        
+        # Path A: Fine detail (3x3) - similar to your original
+        a = nn.Conv(features=32, kernel_size=(3, 3), padding='SAME')(x)
+        a = nn.relu(a)
+        
+        # Path B: Structural context (5x5) - better generalization
+        b = nn.Conv(features=32, kernel_size=(5, 5), padding='SAME')(x)
+        b = nn.relu(b)
+        
+        # Merge the paths
+        x = jnp.concatenate([a, b], axis=-1)
+        
+        # Second Stage: Spatial contraction
+        x = nn.Conv(features=64, kernel_size=(3, 3), padding='SAME')(x)
+        x = nn.relu(x)
+        x = nn.max_pool(x, (2, 2))
+        
+        x = x.reshape((x.shape[0], -1))
+        
+        # The Counterfactual Surface (Bottleneck)
+        # Use a "Squeeze-and-Excitation" style weighting to let the model 
+        # ignore noisy features on small data
+        embedding = nn.Dense(self.hidden_dim)(x)
+        
+        # SWISH is smoother than ReLU and usually provides better counterfactual 
+        # gradients because it is non-monotonic and differentiable everywhere.
+        x = nn.swish(embedding)
+        
+        logits = nn.Dense(self.num_classes, name='linear1')(x)
+        return logits, embedding
+    
+class ManifoldRobustConv(nn.Module):
+    num_classes: int = 10
+    hidden_dim: int = 128
+    dropout_rate: float = 0.3 # Higher dropout forces generalization
+
+    @nn.compact
+    def __call__(self, x, train=False):
+        if x.ndim == 2: x = x.reshape((x.shape[0], 28, 28, 1))
+        
+        # Block 1: Feature Extraction
+        x = nn.Conv(features=32, kernel_size=(3, 3), padding='SAME')(x)
+        x = nn.swish(x)
+        x = nn.max_pool(x, (2, 2))
+        
+        # Block 2: Spatial Hierarchy
+        x = nn.Conv(features=64, kernel_size=(3, 3), padding='SAME')(x)
+        x = nn.swish(x)
+        x = nn.max_pool(x, (2, 2))
+        
+        x = x.reshape((x.shape[0], -1))
+        
+        # THE CRITICAL PART: The Embedding Surface
+        # Adding Dropout here prevents 100% training accuracy 'tunnel vision'
+        embedding = nn.Dense(self.hidden_dim)(x)
+        x = nn.Dropout(rate=self.dropout_rate, deterministic=not train)(embedding)
+        x = nn.swish(x)
+        
+        logits = nn.Dense(self.num_classes, name='linear1')(x)
+        return logits, embedding
+    
+import jax.numpy as jnp
+import flax.linen as nn
+
+class MNISTViTClassifier(nn.Module):
+    num_classes: int = 10
+    hidden_dim: int = 128  # size of the high-level feature embedding
+    patch_size: int = 7
+    emb_dim: int = 64
+    num_layers: int = 4
+    num_heads: int = 4
+    mlp_dim: int = 128
+    dropout_rate: float = 0.1
+    attention_dropout_rate: float = 0.1
+
+
+    def setup(self):
+        # Dense projection for the final embedding
+        self.feature_layer = nn.Dense(
+            features=self.hidden_dim,
+            kernel_init=nn.initializers.glorot_normal()
+        )
+        self.dropout = nn.Dropout(rate=self.dropout_rate)
+        self.linear1 = nn.Dense(
+            features=self.num_classes,
+            kernel_init=nn.initializers.glorot_normal()
+        )
+    @nn.compact
+    def __call__(self, x: jnp.ndarray, train: bool = False):
+        """
+        x: (batch, 28, 28) or (batch, 784) with values in [0, 255]
+        Returns: (logits, features)
+        """
+        # --- 1. Preprocessing ---
+        x = jnp.array(x)
+        if x.ndim == 2 and x.shape[-1] == 784:
+            batch_size = x.shape[0]
+            x = x.reshape((batch_size, 28, 28))
+        x = x.astype(jnp.float32) / 255.0
+        x = jnp.expand_dims(x, axis=-1)  # (B,28,28,1)
+
+        # --- 2. Patch embedding ---
+        patch_h = patch_w = self.patch_size
+        n_h, n_w = x.shape[1] // patch_h, x.shape[2] // patch_w
+        n_patches = n_h * n_w
+
+        x = nn.Conv(
+            features=self.emb_dim,
+            kernel_size=(patch_h, patch_w),
+            strides=(patch_h, patch_w),
+            name="patch_embedding"
+        )(x)  # (B, n_h, n_w, emb_dim)
+        x = x.reshape((x.shape[0], -1, self.emb_dim))  # (B, n_patches, emb_dim)
+
+        # cls token
+        cls = self.param('cls', nn.initializers.zeros, (1, 1, self.emb_dim))
+        cls = jnp.tile(cls, [x.shape[0], 1, 1])
+        x = jnp.concatenate([cls, x], axis=1)  # (B, n_patches+1, emb_dim)
+
+        # pos embedding
+        pos_emb = self.param(
+            'pos_embedding',
+            nn.initializers.normal(stddev=0.02),
+            (1, n_patches + 1, self.emb_dim)
+        )
+        x = x + pos_emb
+        x = nn.Dropout(self.dropout_rate)(x, deterministic=not train)
+
+        # --- 3. Transformer encoder ---
+        for i in range(self.num_layers):
+            x = nn.LayerNorm()(x)
+            attn = nn.SelfAttention(
+                num_heads=self.num_heads,
+                dropout_rate=self.attention_dropout_rate,
+                deterministic=not train,
+                name=f"attn_{i}"
+            )(x)
+            attn = nn.Dropout(self.dropout_rate)(attn, deterministic=not train)
+            x = x + attn
+
+            y = nn.LayerNorm()(x)
+            y = nn.Dense(self.mlp_dim)(y)
+            y = nn.gelu(y)
+            y = nn.Dropout(self.dropout_rate)(y, deterministic=not train)
+            y = nn.Dense(self.emb_dim)(y)
+            y = nn.Dropout(self.dropout_rate)(y, deterministic=not train)
+            x = x + y
+
+        x = nn.LayerNorm()(x)
+        cls_token = x[:, 0]  # (B, emb_dim)
+
+        # --- 4. Embedding + classification ---
+        features = self.feature_layer(cls_token)
+        x_embed = nn.relu(features)
+        x_drop = self.dropout(x_embed, deterministic=not train)
+        logits = self.linear1(x_drop)
+
+        return logits, features
+
+# # Define the CNN architecture as a Flax nn.Module
+# class MNISTConvClassifierGemini(nn.Module):
+#     num_classes: int = 10
+#     hidden_dim: int = 128  # size of the high-level feature embedding
+
+#     def setup(self):
+#         # --- Feature Extraction Layers (CNN) ---
+#         # 1. First Convolutional Block
+#         self.conv1 = nn.Conv(
+#             features=32,
+#             kernel_size=(3, 3),
+#             kernel_init=nn.initializers.lecun_normal()
+#         )
+#         # 2. Second Convolutional Block
+#         self.conv2 = nn.Conv(
+#             features=64,
+#             kernel_size=(3, 3),
+#             kernel_init=nn.initializers.lecun_normal()
+#         )
+
+#         # --- Embedding Layer ---
+#         # This Dense layer maps the flattened feature maps into the final embedding vector.
+#         self.feature_layer = nn.Dense(
+#             features=self.hidden_dim,
+#             kernel_init=nn.initializers.glorot_normal()
+#         )
+        
+#         # --- Regularization and Classifier Head ---
+#         self.dropout = nn.Dropout(rate=0.5)
+        
+#         # Classifier head: Maps the embedding to the final class logits
+#         self.classifier_head = nn.Dense(
+#             features=self.num_classes,
+#             kernel_init=nn.initializers.glorot_normal()
+#         )
+
+#     def __call__(self, x: jnp.ndarray, train: bool = False):
+#         """
+#         x shape: (batch, 28, 28) with values in [0, 255]
+#         """
+#         print("SHAPE START:",np.shape(x))
+#         # --- 1. Preprocessing ---
+#         # Normalize pixel intensities to [0, 1] and add channel dimension (1 for grayscale)
+#         x = jnp.array(x)
+#         x = x.astype(jnp.float32) / 255.0
+#         # Reshape from (B, 28, 28) to (B, 28, 28, 1)
+#         x = jnp.expand_dims(x, axis=-1)
+
+#         # --- 2. Feature Extraction (CNN) ---
+        
+#         # Conv 1 -> ReLU -> MaxPool
+#         x = self.conv1(x)
+#         x = nn.relu(x)
+#         x = nn.max_pool(x, window_shape=(2, 2), strides=(2, 2))
+        
+#         # Conv 2 -> ReLU -> MaxPool
+#         x = self.conv2(x)
+#         x = nn.relu(x)
+#         x = nn.max_pool(x, window_shape=(2, 2), strides=(2, 2))
+#         print(np.shape(x))
+#         # Flatten feature maps into vector
+#         x = x.reshape((x.shape[0], -1))  # (batch, flattened_size)
+
+#         # --- 3. Embedding Generation ---
+#         # Project into the high-level embedding space (your requested point of interest)
+#         x_embed = self.feature_layer(x)
+#         x_embed = nn.relu(x_embed)  # Apply non-linearity to the embedding
+
+#         # --- 4. Classification ---
+#         # Dropout + classifier head
+#         x_drop = self.dropout(x_embed, deterministic=not train)
+#         logits = self.classifier_head(x_drop)  # (batch, num_classes)
+
+#         # Return both the logits and the meaningful feature embedding
+#         return logits, x_embed
+
+
+class BagOfWordsClassifier2Layer(nn.Module):
+    vocabulary_size: int = 20002
+    embedding_size: int = 50
+    
+    def setup(self):
+        self.linear1 = nn.Dense(features=32, kernel_init=nn.initializers.glorot_normal())#,bias_init=nn.initializers.normal(stddev=0.1))
+        self.linear2 = nn.Dense(features=1, kernel_init=nn.initializers.glorot_normal())#,bias_init=nn.initializers.normal(stddev=0.1))
+        self.embed = nn.Embed(num_embeddings=self.vocabulary_size, features=self.embedding_size,
+                              embedding_init=nn.initializers.glorot_normal())
+        self.dropout = nn.Dropout(rate=0.9)
+
+    def __call__(self, x, train=False):
+        
+        x = np.asarray(x)  # Ensure x is a numpy array
+        # debug.print('x: shape: {sx},{maxx},{minx}',sx=np.shape(x),maxx = np.max(x),minx = np.min(x))
+        # x: (batch_size, seq_length), assumed padded with 0
+        mask = (x != 0).astype(np.float32)  # Padding mask
+
+        # debug.print('mask: {x}',x=np.mean(mask))
+        embeddings = self.embed(x)  # (batch_size, seq_length, embedding_size)
+        # debug.print('embeddings: {x}',x=np.mean(embeddings))
+        embeddings = embeddings * mask[..., None]
+        # debug.print('embeddings2: {x}',x=np.mean(embeddings))
+        summed = np.sum(embeddings, axis=1)
+
+        lengths = np.sum(mask, axis=1, keepdims=True)
+        # debug.print('shape of input: {y}\n lengths: {x}',x=np.shape(lengths),y = np.shape(x))
+        x = summed / np.maximum(lengths, 1) 
+
+        x_drop = self.dropout(x, deterministic=not train)
+        x_drop = nn.relu(self.linear1(x_drop))
+        x_drop = self.dropout(x_drop, deterministic=not train)
+        logits = self.linear2(x_drop)
+        return logits.squeeze(axis=-1), x
+
+
+class SentimentModel(nn.Module):
+    vocab_size: int = 20000
+    embed_size: int = 50
+
+    @nn.compact
+    def __call__(self, x, mask):
+        # x: (batch_size, 32) token indices
+        x = nn.Embed(num_embeddings=self.vocab_size, features=self.embed_size)(x)
+        # x: (batch_size, 32, 50)
+        # Average over tokens, ignoring padding
+        x = np.sum(x * mask[..., None], axis=1) / np.sum(mask, axis=1, keepdims=True)
+        # x: (batch_size, 50)
+        x = nn.Dense(1)(x)
+        x = nn.sigmoid(x)
+        return x
 
 # Define the model
 class BagOfWordsClassifierSingle(nn.Module):
@@ -780,4 +1539,44 @@ class SimpleClassifierNew(nn.Module):
         x = self.linear2(x)
         return x
 
-custom_models = {'simple':SimpleClassifier, 'gradient_supervision':GSPaper, 'GPTattempt':TextClassifierHard}
+import flax.linen as nn
+from flax.linen.initializers import glorot_normal
+
+class MNIST_v1(nn.Module):
+    num_hidden: int   # number of hidden neurons
+    num_outputs: int = 10  # 10 digits (0–9)
+
+    def setup(self):
+        # Layers
+        self.linear1 = nn.Dense(features=self.num_hidden, kernel_init=glorot_normal())
+        self.linear2 = nn.Dense(features=self.num_outputs, kernel_init=glorot_normal())
+        self.dropout = nn.Dropout(rate=0.1)
+
+    def __call__(self, x, train: bool = False):
+        # x shape: (batch_size, 784) for MNIST
+        x = self.linear1(x)
+        x = nn.relu(x)
+        # Dropout only if training
+        # x = self.dropout(x, deterministic=not train)
+        x = self.linear2(x)  # logits, shape (batch_size, 10)
+
+        return x, None  # logits + dummy placeholder
+
+
+custom_models = {'simple':SimpleClassifier,
+                 'simple_v2':SimpleClassifier_v2,
+                 'multiclass':MultiClassClassifier, 
+                 'bag_of_words':BagOfWordsClassifierSimple,
+                 'mnist':MNISTClassifier,
+                 'mnist_conv':MNISTConvClassifier,
+                 'simple_mnist_conv':SimpleMNISTConv,
+                 'improved_mnist_conv':ImprovedMNISTConv,
+                 'robust_mnist_conv':RobustMNISTConv,
+                 'manifold_robust_mnist_conv':ManifoldRobustConv,
+                 'optimized_mnist_conv':OptimizedMNISTConv,
+                 'finalform_mnist_conv':SurpassingMNIST,
+                 'mnist_conv_gemini':MNISTConvClassifierGemini2,
+                 'mnist_vit':MNISTViTClassifier,
+                 'multiclass_bag_of_words':BagOfWordsClassifierMultiClass,
+                 'gradient_supervision':GSPaper, 
+                 'GPTattempt':TextClassifierHard}

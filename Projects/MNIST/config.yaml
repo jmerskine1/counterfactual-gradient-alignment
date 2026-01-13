@@ -1,0 +1,28 @@
+data_params:
+  boundary_only: false
+  dataset: MNIST
+  knowledge_func: counterfactual_paths
+  max_delta: 1.0
+  n_vec: 1
+  train_size: 1000
+  validation_size: 200
+hyperparams:
+  batch_size: 32
+  epochs: 10
+  learning_rate: 0.01
+  loss_function: cross_entropy
+  loss_mix: 1000.95
+  model: simple
+  model_io: !!python/tuple
+  - 64
+  - 1
+  model_size: !!python/tuple
+  - 80
+  - 1
+  momentum: 0.5
+  seed: 1
+visualisation:
+  draw_eval: true
+  plot_epoch: False
+  visualise: True
+  video: True
