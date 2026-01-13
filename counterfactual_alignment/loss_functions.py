@@ -499,8 +499,9 @@ def multiclass_direction(params, model, batch, rng, config=None):
     # loss = nn.relu(directional_derivative/magnitude)
     # loss = nn.softplus(10*directional_derivative)/(magnitude)
     
-    loss = nn.softplus(10*directional_derivative)/10
+    # loss = nn.softplus(10*directional_derivative)/10
 
+    loss = nn.relu(directional_derivative)
     
     # loss = nn.softplus(directional_derivative)/magnitude
     # jax.debug.print("X: {}",X)
