@@ -21,8 +21,8 @@ ALPHAS = [0.3, 0.5, 0.7]
 TRAIN_SIZES = [10, 20, 50, 100]
 
 CONFIG_PATH = 'Projects/SST-2/config.yaml'
-RESULTS_FILE = 'Projects/SST-2/experiment_results_expanded.json'
-MANIFEST_FILE = 'Projects/SST-2/experiment_manifest.txt'
+RESULTS_FILE = 'Projects/SST-2/experiment_results_no_active.json'
+MANIFEST_FILE = 'Projects/SST-2/experiment_manifest_no_active.txt'
 
 def update_config(loss_fn, alpha, train_size):
     with open(CONFIG_PATH, 'r') as f:
@@ -31,7 +31,7 @@ def update_config(loss_fn, alpha, train_size):
     config_text = re.sub(r'loss_function: .*', f'loss_function: {loss_fn}', config_text)
     config_text = re.sub(r'loss_mix: .*', f'loss_mix: {alpha}', config_text)
     config_text = re.sub(r'init_samplesize: .*', f'init_samplesize: {train_size}', config_text)
-    config_text = re.sub(r'active_sampling: .*', 'active_sampling: True', config_text)
+    config_text = re.sub(r'active_sampling: .*', 'active_sampling: False', config_text)
     # Ensure visualisations are off
     config_text = re.sub(r'visualise: .*', 'visualise: false', config_text)
     config_text = re.sub(r'visualise_embeddings: .*', 'visualise_embeddings: false', config_text)
