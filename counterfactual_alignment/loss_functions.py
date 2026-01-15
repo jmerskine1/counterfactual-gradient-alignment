@@ -379,6 +379,34 @@ def directional_loss(theta, y, scale=10.0):
 
 
 
+def direction_common(params, model, batch, rng, loss_type='softplus'):
+    X, Y, K = jnp.array(batch['X']), batch['Y'], batch['K']['vector']   # shapes: (N,D), (N,), (N,n,D)
+    rngs = jax.random.split(rng, X.shape[0])
+    g = batched_grad_predict(params, model, X, rngs)  # (N,D)
+    directional_derivative = jnp.sum(g * K, axis=1)
+    desired_sign = -(1.0 - 2.0 * jnp.array(Y).astype(jnp.float32))
+
+    if loss_type == 'softplus':
+        loss = nn.softplus(10*directional_derivative*desired_sign)/10
+    elif loss_type == 'relu':
+        loss = nn.relu(directional_derivative*desired_sign)
+    elif loss_type == 'sign':
+        loss = jnp.tanh(10.0 * directional_derivative * desired_sign) + 1.0
+    else:
+        loss = nn.softplus(10*directional_derivative*desired_sign)/10
+    
+    return jnp.mean(loss)
+
+def direction_relu(params, model, batch, rng, config=None, alpha=None):
+    return direction_common(params, model, batch, rng, loss_type='relu')
+
+def direction_softplus(params, model, batch, rng, config=None, alpha=None):
+    return direction_common(params, model, batch, rng, loss_type='softplus')
+
+def direction_sign(params, model, batch, rng, config=None, alpha=None):
+    return direction_common(params, model, batch, rng, loss_type='sign')
+
+
 def direction(params, model, batch, rng, config=None, alpha=None):
     X, Y, K = batch['X'], batch['Y'], batch['K']['vector']   # shapes: (N,D), (N,), (N,n,D)
     
@@ -633,6 +661,62 @@ def combined_loss_archive(params, model, batch, rng, alpha=0.5):
         jax.debug.print("Loss: {x}",x=loss)
     # return loss, logits
     return loss
+
+
+def combined_loss_embedding_common(params, model, batch, rng, alpha=0.5, direction_fn=direction_softplus):
+    X, Y, K = batch['X'], batch['Y'], batch['K']
+    
+    ce_loss = cross_entropy(params, model, batch, rng, alpha=0.5)
+
+    logits, embeddings = model.apply({'params': params}, X, train=True, rngs={'dropout': rng})
+
+    batch_size, k_count = K['vector'].shape[:2]
+    k_vectors_flat = K['vector'].reshape(batch_size * k_count, *K['vector'].shape[2:])
+    _, k_embs = model.apply({'params': params}, k_vectors_flat, train=False, rngs={'dropout': rng})
+
+    embedding_length = embeddings.shape[-1]
+    embeddings_expanded = jnp.expand_dims(embeddings, axis=1)        
+    embeddings_expanded = jnp.repeat(embeddings_expanded, k_count, axis=1)  
+    embeddings_expanded = embeddings_expanded.reshape(batch_size * k_count, embedding_length)
+    y_expanded = jnp.expand_dims(np.array(Y), axis=1)
+    y_expanded = jnp.repeat(y_expanded, k_count, axis=1)  
+    y_expanded = y_expanded.reshape(batch_size * k_count)
+    
+    k_direction = batch_unit_vector(embeddings_expanded,k_embs)
+
+    params_linear = {'linear1': params['linear1']}
+
+    d_loss = direction_fn(params_linear,embedding_only,
+                       {"X":embeddings_expanded,
+                        'Y':y_expanded,
+                        "K":{'vector':k_direction},
+                        },rng)
+    
+    return (1 - alpha) * ce_loss + alpha * d_loss
+
+def combined_loss_embedding_relu(params, model, batch, rng, alpha=0.5):
+    return combined_loss_embedding_common(params, model, batch, rng, alpha, direction_relu)
+
+def combined_loss_embedding_softplus(params, model, batch, rng, alpha=0.5):
+    return combined_loss_embedding_common(params, model, batch, rng, alpha, direction_softplus)
+
+def combined_loss_embedding_sign(params, model, batch, rng, alpha=0.5):
+    return combined_loss_embedding_common(params, model, batch, rng, alpha, direction_sign)
+
+
+def combined_loss_common(params, model, batch, rng, alpha=0.5, direction_fn=direction_softplus):
+    ce_loss = cross_entropy(params,model,batch,rng)
+    d_loss = direction_fn(params,model,batch,rng)
+    return (1 - alpha) * ce_loss + alpha * d_loss
+
+def combined_loss_relu(params, model, batch, rng, alpha=0.5):
+    return combined_loss_common(params, model, batch, rng, alpha, direction_relu)
+
+def combined_loss_softplus(params, model, batch, rng, alpha=0.5):
+    return combined_loss_common(params, model, batch, rng, alpha, direction_softplus)
+
+def combined_loss_sign(params, model, batch, rng, alpha=0.5):
+    return combined_loss_common(params, model, batch, rng, alpha, direction_sign)
 
 
 def combined_loss(params, model, batch, rng, alpha=0.5):
@@ -1100,7 +1184,16 @@ def direction_interactive( params, batch):
 
 
 loss_functions =   {'direction':direction,
+                    'direction_relu':direction_relu,
+                    'direction_softplus':direction_softplus,
+                    'direction_sign':direction_sign,
                     'combined_loss':combined_loss,
+                    'combined_loss_relu':combined_loss_relu,
+                    'combined_loss_softplus':combined_loss_softplus,
+                    'combined_loss_sign':combined_loss_sign,
+                    'combined_loss_embedding_relu':combined_loss_embedding_relu,
+                    'combined_loss_embedding_softplus':combined_loss_embedding_softplus,
+                    'combined_loss_embedding_sign':combined_loss_embedding_sign,
                     'multiclass_combined_loss':multiclass_combined_loss,
                     'multiclass_split_loss':multiclass_split_loss,
                     'combined_loss_embedding':combined_loss_embedding,

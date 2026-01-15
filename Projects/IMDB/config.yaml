@@ -1,21 +1,21 @@
 data_params:
+  active_sampling: true
   boundary_only: false
   dataset: integer_len32
+  diversity: 0.8
+  init_samplesize: 200
   knowledge_func: counterfactual
   max_delta: 1.0
   n_vec: 2
+  sample_size: 60
   train_size: 10
   validation_size: 100
-  active_sampling: False
-  sample_size: 60
-  diversity: 0.8
 hyperparams:
   batch_size: 32
-  vocabulary_size: 20002
   embedding_size: 50
-  epochs: 50
+  epochs: 5
   learning_rate: 0.0001
-  loss_function:  cross_entropy #combined_loss_embedding #
+  loss_function: combined_loss_embedding_sign
   loss_mix: 0.5
   model: bag_of_words
   model_io: !!python/tuple
@@ -25,10 +25,11 @@ hyperparams:
   - 80
   - 1
   momentum: 0.5
-  n_models: 6
+  n_models: 1
   seed: 100
+  vocabulary_size: 20002
 visualisation:
-  draw_eval: true
+  draw_eval: false
   plot_epoch: false
   video: false
-  visualise: true
+  visualise: false

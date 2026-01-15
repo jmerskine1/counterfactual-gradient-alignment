@@ -153,12 +153,20 @@ class customDataset(data.Dataset):
         for key in all_keys:
             arr1 = self.K.get(key, [])
             arr2 = other.K.get(key, [])
+            
             if len(arr1) == 0:
                 combined_K[key] = arr2
             elif len(arr2) == 0:
                 combined_K[key] = arr1
             else:
-                combined_K[key] = arr1 + arr2 #np.concatenate([arr1, arr2], axis=0)
+                # Check if they are lists or numpy arrays
+                if isinstance(arr1, list) and isinstance(arr2, list):
+                    combined_K[key] = arr1 + arr2
+                elif isinstance(arr1, np.ndarray) and isinstance(arr2, np.ndarray):
+                    combined_K[key] = np.concatenate([arr1, arr2], axis=0)
+                else:
+                    # Try to convert to list and combine if types mismatch or other iterable
+                    combined_K[key] = list(arr1) + list(arr2)
 
         # Build combined data dict
         combined_data = {
