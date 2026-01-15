@@ -1,0 +1,362 @@
+[
+    {
+        "timestamp": "2026-01-15 16:23:39",
+        "dataset": "XOR",
+        "loss_function": "multiclass_cross_entropy",
+        "alpha": 0.0,
+        "train_size": 10,
+        "accuracy": 74.5,
+        "duration": 13.559811115264893,
+        "output_file": "MODEL_ENSEMBLE_6_MultiClassClassifier__OPTIM_adam_opt__LR_0.01__BATCHSIZE_32__DATA_XOR_filtered__LOSS_multiclass_cross_entropy_alpha_0.0__SIZE10"
+    },
+    {
+        "timestamp": "2026-01-15 16:23:53",
+        "dataset": "XOR",
+        "loss_function": "multiclass_cross_entropy",
+        "alpha": 0.0,
+        "train_size": 30,
+        "accuracy": 97.5,
+        "duration": 14.388484001159668,
+        "output_file": "MODEL_ENSEMBLE_6_MultiClassClassifier__OPTIM_adam_opt__LR_0.01__BATCHSIZE_32__DATA_XOR_filtered__LOSS_multiclass_cross_entropy_alpha_0.0__SIZE30"
+    },
+    {
+        "timestamp": "2026-01-15 16:24:16",
+        "dataset": "XOR",
+        "loss_function": "multiclass_cross_entropy",
+        "alpha": 0.0,
+        "train_size": 100,
+        "accuracy": 100.0,
+        "duration": 22.839651107788086,
+        "output_file": "MODEL_ENSEMBLE_6_MultiClassClassifier__OPTIM_adam_opt__LR_0.01__BATCHSIZE_32__DATA_XOR_filtered__LOSS_multiclass_cross_entropy_alpha_0.0__SIZE100"
+    },
+    {
+        "timestamp": "2026-01-15 16:24:34",
+        "dataset": "XOR",
+        "loss_function": "multiclass_combined_loss_relu",
+        "alpha": 0.5,
+        "train_size": 10,
+        "accuracy": 75.0,
+        "duration": 17.68988299369812,
+        "output_file": "MODEL_ENSEMBLE_6_MultiClassClassifier__OPTIM_adam_opt__LR_0.01__BATCHSIZE_32__DATA_XOR_filtered__LOSS_multiclass_combined_loss_relu_alpha_0.5__SIZE10"
+    },
+    {
+        "timestamp": "2026-01-15 16:24:57",
+        "dataset": "XOR",
+        "loss_function": "multiclass_combined_loss_relu",
+        "alpha": 0.5,
+        "train_size": 30,
+        "accuracy": 82.5,
+        "duration": 23.24407720565796,
+        "output_file": "MODEL_ENSEMBLE_6_MultiClassClassifier__OPTIM_adam_opt__LR_0.01__BATCHSIZE_32__DATA_XOR_filtered__LOSS_multiclass_combined_loss_relu_alpha_0.5__SIZE30"
+    },
+    {
+        "timestamp": "2026-01-15 16:25:40",
+        "dataset": "XOR",
+        "loss_function": "multiclass_combined_loss_relu",
+        "alpha": 0.5,
+        "train_size": 100,
+        "accuracy": 100.0,
+        "duration": 43.11512112617493,
+        "output_file": "MODEL_ENSEMBLE_6_MultiClassClassifier__OPTIM_adam_opt__LR_0.01__BATCHSIZE_32__DATA_XOR_filtered__LOSS_multiclass_combined_loss_relu_alpha_0.5__SIZE100"
+    },
+    {
+        "timestamp": "2026-01-15 16:25:58",
+        "dataset": "XOR",
+        "loss_function": "multiclass_combined_loss_softplus",
+        "alpha": 0.5,
+        "train_size": 10,
+        "accuracy": 74.5,
+        "duration": 17.969905138015747,
+        "output_file": "MODEL_ENSEMBLE_6_MultiClassClassifier__OPTIM_adam_opt__LR_0.01__BATCHSIZE_32__DATA_XOR_filtered__LOSS_multiclass_combined_loss_softplus_alpha_0.5__SIZE10"
+    },
+    {
+        "timestamp": "2026-01-15 16:26:20",
+        "dataset": "XOR",
+        "loss_function": "multiclass_combined_loss_softplus",
+        "alpha": 0.5,
+        "train_size": 30,
+        "accuracy": 93.0,
+        "duration": 22.22070074081421,
+        "output_file": "MODEL_ENSEMBLE_6_MultiClassClassifier__OPTIM_adam_opt__LR_0.01__BATCHSIZE_32__DATA_XOR_filtered__LOSS_multiclass_combined_loss_softplus_alpha_0.5__SIZE30"
+    },
+    {
+        "timestamp": "2026-01-15 16:27:04",
+        "dataset": "XOR",
+        "loss_function": "multiclass_combined_loss_softplus",
+        "alpha": 0.5,
+        "train_size": 100,
+        "accuracy": 100.0,
+        "duration": 44.1448438167572,
+        "output_file": "MODEL_ENSEMBLE_6_MultiClassClassifier__OPTIM_adam_opt__LR_0.01__BATCHSIZE_32__DATA_XOR_filtered__LOSS_multiclass_combined_loss_softplus_alpha_0.5__SIZE100"
+    },
+    {
+        "timestamp": "2026-01-15 16:27:21",
+        "dataset": "XOR",
+        "loss_function": "multiclass_combined_loss_sign",
+        "alpha": 0.5,
+        "train_size": 10,
+        "accuracy": 75.5,
+        "duration": 17.052919626235962,
+        "output_file": "MODEL_ENSEMBLE_6_MultiClassClassifier__OPTIM_adam_opt__LR_0.01__BATCHSIZE_32__DATA_XOR_filtered__LOSS_multiclass_combined_loss_sign_alpha_0.5__SIZE10"
+    },
+    {
+        "timestamp": "2026-01-15 16:27:44",
+        "dataset": "XOR",
+        "loss_function": "multiclass_combined_loss_sign",
+        "alpha": 0.5,
+        "train_size": 30,
+        "accuracy": 73.0,
+        "duration": 22.263115882873535,
+        "output_file": "MODEL_ENSEMBLE_6_MultiClassClassifier__OPTIM_adam_opt__LR_0.01__BATCHSIZE_32__DATA_XOR_filtered__LOSS_multiclass_combined_loss_sign_alpha_0.5__SIZE30"
+    },
+    {
+        "timestamp": "2026-01-15 16:28:26",
+        "dataset": "XOR",
+        "loss_function": "multiclass_combined_loss_sign",
+        "alpha": 0.5,
+        "train_size": 100,
+        "accuracy": 100.0,
+        "duration": 42.57624912261963,
+        "output_file": "MODEL_ENSEMBLE_6_MultiClassClassifier__OPTIM_adam_opt__LR_0.01__BATCHSIZE_32__DATA_XOR_filtered__LOSS_multiclass_combined_loss_sign_alpha_0.5__SIZE100"
+    },
+    {
+        "timestamp": "2026-01-15 16:28:35",
+        "dataset": "Circles",
+        "loss_function": "multiclass_cross_entropy",
+        "alpha": 0.0,
+        "train_size": 10,
+        "accuracy": 74.0,
+        "duration": 9.180144786834717,
+        "output_file": "MODEL_ENSEMBLE_6_MultiClassClassifier__OPTIM_adam_opt__LR_0.01__BATCHSIZE_32__DATA_Circles_filtered__LOSS_multiclass_cross_entropy_alpha_0.0__SIZE10"
+    },
+    {
+        "timestamp": "2026-01-15 16:28:45",
+        "dataset": "Circles",
+        "loss_function": "multiclass_cross_entropy",
+        "alpha": 0.0,
+        "train_size": 30,
+        "accuracy": 79.0,
+        "duration": 9.53187894821167,
+        "output_file": "MODEL_ENSEMBLE_6_MultiClassClassifier__OPTIM_adam_opt__LR_0.01__BATCHSIZE_32__DATA_Circles_filtered__LOSS_multiclass_cross_entropy_alpha_0.0__SIZE30"
+    },
+    {
+        "timestamp": "2026-01-15 16:29:01",
+        "dataset": "Circles",
+        "loss_function": "multiclass_cross_entropy",
+        "alpha": 0.0,
+        "train_size": 100,
+        "accuracy": 57.5,
+        "duration": 16.21304702758789,
+        "output_file": "MODEL_ENSEMBLE_6_MultiClassClassifier__OPTIM_adam_opt__LR_0.01__BATCHSIZE_32__DATA_Circles_filtered__LOSS_multiclass_cross_entropy_alpha_0.0__SIZE100"
+    },
+    {
+        "timestamp": "2026-01-15 16:29:15",
+        "dataset": "Circles",
+        "loss_function": "multiclass_combined_loss_relu",
+        "alpha": 0.5,
+        "train_size": 10,
+        "accuracy": 80.0,
+        "duration": 13.836349964141846,
+        "output_file": "MODEL_ENSEMBLE_6_MultiClassClassifier__OPTIM_adam_opt__LR_0.01__BATCHSIZE_32__DATA_Circles_filtered__LOSS_multiclass_combined_loss_relu_alpha_0.5__SIZE10"
+    },
+    {
+        "timestamp": "2026-01-15 16:29:33",
+        "dataset": "Circles",
+        "loss_function": "multiclass_combined_loss_relu",
+        "alpha": 0.5,
+        "train_size": 30,
+        "accuracy": 85.5,
+        "duration": 17.91294002532959,
+        "output_file": "MODEL_ENSEMBLE_6_MultiClassClassifier__OPTIM_adam_opt__LR_0.01__BATCHSIZE_32__DATA_Circles_filtered__LOSS_multiclass_combined_loss_relu_alpha_0.5__SIZE30"
+    },
+    {
+        "timestamp": "2026-01-15 16:30:12",
+        "dataset": "Circles",
+        "loss_function": "multiclass_combined_loss_relu",
+        "alpha": 0.5,
+        "train_size": 100,
+        "accuracy": 57.0,
+        "duration": 39.39478302001953,
+        "output_file": "MODEL_ENSEMBLE_6_MultiClassClassifier__OPTIM_adam_opt__LR_0.01__BATCHSIZE_32__DATA_Circles_filtered__LOSS_multiclass_combined_loss_relu_alpha_0.5__SIZE100"
+    },
+    {
+        "timestamp": "2026-01-15 16:30:26",
+        "dataset": "Circles",
+        "loss_function": "multiclass_combined_loss_softplus",
+        "alpha": 0.5,
+        "train_size": 10,
+        "accuracy": 67.5,
+        "duration": 13.932549953460693,
+        "output_file": "MODEL_ENSEMBLE_6_MultiClassClassifier__OPTIM_adam_opt__LR_0.01__BATCHSIZE_32__DATA_Circles_filtered__LOSS_multiclass_combined_loss_softplus_alpha_0.5__SIZE10"
+    },
+    {
+        "timestamp": "2026-01-15 16:30:45",
+        "dataset": "Circles",
+        "loss_function": "multiclass_combined_loss_softplus",
+        "alpha": 0.5,
+        "train_size": 30,
+        "accuracy": 64.0,
+        "duration": 18.996665000915527,
+        "output_file": "MODEL_ENSEMBLE_6_MultiClassClassifier__OPTIM_adam_opt__LR_0.01__BATCHSIZE_32__DATA_Circles_filtered__LOSS_multiclass_combined_loss_softplus_alpha_0.5__SIZE30"
+    },
+    {
+        "timestamp": "2026-01-15 16:31:26",
+        "dataset": "Circles",
+        "loss_function": "multiclass_combined_loss_softplus",
+        "alpha": 0.5,
+        "train_size": 100,
+        "accuracy": 50.0,
+        "duration": 40.955360889434814,
+        "output_file": "MODEL_ENSEMBLE_6_MultiClassClassifier__OPTIM_adam_opt__LR_0.01__BATCHSIZE_32__DATA_Circles_filtered__LOSS_multiclass_combined_loss_softplus_alpha_0.5__SIZE100"
+    },
+    {
+        "timestamp": "2026-01-15 16:31:41",
+        "dataset": "Circles",
+        "loss_function": "multiclass_combined_loss_sign",
+        "alpha": 0.5,
+        "train_size": 10,
+        "accuracy": 68.5,
+        "duration": 15.076894044876099,
+        "output_file": "MODEL_ENSEMBLE_6_MultiClassClassifier__OPTIM_adam_opt__LR_0.01__BATCHSIZE_32__DATA_Circles_filtered__LOSS_multiclass_combined_loss_sign_alpha_0.5__SIZE10"
+    },
+    {
+        "timestamp": "2026-01-15 16:32:01",
+        "dataset": "Circles",
+        "loss_function": "multiclass_combined_loss_sign",
+        "alpha": 0.5,
+        "train_size": 30,
+        "accuracy": 81.0,
+        "duration": 19.364523887634277,
+        "output_file": "MODEL_ENSEMBLE_6_MultiClassClassifier__OPTIM_adam_opt__LR_0.01__BATCHSIZE_32__DATA_Circles_filtered__LOSS_multiclass_combined_loss_sign_alpha_0.5__SIZE30"
+    },
+    {
+        "timestamp": "2026-01-15 16:32:41",
+        "dataset": "Circles",
+        "loss_function": "multiclass_combined_loss_sign",
+        "alpha": 0.5,
+        "train_size": 100,
+        "accuracy": 72.0,
+        "duration": 40.57536220550537,
+        "output_file": "MODEL_ENSEMBLE_6_MultiClassClassifier__OPTIM_adam_opt__LR_0.01__BATCHSIZE_32__DATA_Circles_filtered__LOSS_multiclass_combined_loss_sign_alpha_0.5__SIZE100"
+    },
+    {
+        "timestamp": "2026-01-15 16:32:51",
+        "dataset": "TwoMoons",
+        "loss_function": "multiclass_cross_entropy",
+        "alpha": 0.0,
+        "train_size": 10,
+        "accuracy": 81.5,
+        "duration": 9.60154104232788,
+        "output_file": "MODEL_ENSEMBLE_6_MultiClassClassifier__OPTIM_adam_opt__LR_0.01__BATCHSIZE_32__DATA_TwoMoons_filtered__LOSS_multiclass_cross_entropy_alpha_0.0__SIZE10"
+    },
+    {
+        "timestamp": "2026-01-15 16:33:01",
+        "dataset": "TwoMoons",
+        "loss_function": "multiclass_cross_entropy",
+        "alpha": 0.0,
+        "train_size": 30,
+        "accuracy": 82.0,
+        "duration": 10.21065902709961,
+        "output_file": "MODEL_ENSEMBLE_6_MultiClassClassifier__OPTIM_adam_opt__LR_0.01__BATCHSIZE_32__DATA_TwoMoons_filtered__LOSS_multiclass_cross_entropy_alpha_0.0__SIZE30"
+    },
+    {
+        "timestamp": "2026-01-15 16:33:18",
+        "dataset": "TwoMoons",
+        "loss_function": "multiclass_cross_entropy",
+        "alpha": 0.0,
+        "train_size": 100,
+        "accuracy": 88.5,
+        "duration": 16.656596899032593,
+        "output_file": "MODEL_ENSEMBLE_6_MultiClassClassifier__OPTIM_adam_opt__LR_0.01__BATCHSIZE_32__DATA_TwoMoons_filtered__LOSS_multiclass_cross_entropy_alpha_0.0__SIZE100"
+    },
+    {
+        "timestamp": "2026-01-15 16:33:32",
+        "dataset": "TwoMoons",
+        "loss_function": "multiclass_combined_loss_relu",
+        "alpha": 0.5,
+        "train_size": 10,
+        "accuracy": 80.5,
+        "duration": 13.994966983795166,
+        "output_file": "MODEL_ENSEMBLE_6_MultiClassClassifier__OPTIM_adam_opt__LR_0.01__BATCHSIZE_32__DATA_TwoMoons_filtered__LOSS_multiclass_combined_loss_relu_alpha_0.5__SIZE10"
+    },
+    {
+        "timestamp": "2026-01-15 16:33:50",
+        "dataset": "TwoMoons",
+        "loss_function": "multiclass_combined_loss_relu",
+        "alpha": 0.5,
+        "train_size": 30,
+        "accuracy": 81.5,
+        "duration": 17.870867013931274,
+        "output_file": "MODEL_ENSEMBLE_6_MultiClassClassifier__OPTIM_adam_opt__LR_0.01__BATCHSIZE_32__DATA_TwoMoons_filtered__LOSS_multiclass_combined_loss_relu_alpha_0.5__SIZE30"
+    },
+    {
+        "timestamp": "2026-01-15 16:34:30",
+        "dataset": "TwoMoons",
+        "loss_function": "multiclass_combined_loss_relu",
+        "alpha": 0.5,
+        "train_size": 100,
+        "accuracy": 88.5,
+        "duration": 40.57386016845703,
+        "output_file": "MODEL_ENSEMBLE_6_MultiClassClassifier__OPTIM_adam_opt__LR_0.01__BATCHSIZE_32__DATA_TwoMoons_filtered__LOSS_multiclass_combined_loss_relu_alpha_0.5__SIZE100"
+    },
+    {
+        "timestamp": "2026-01-15 16:34:44",
+        "dataset": "TwoMoons",
+        "loss_function": "multiclass_combined_loss_softplus",
+        "alpha": 0.5,
+        "train_size": 10,
+        "accuracy": 81.0,
+        "duration": 14.14301323890686,
+        "output_file": "MODEL_ENSEMBLE_6_MultiClassClassifier__OPTIM_adam_opt__LR_0.01__BATCHSIZE_32__DATA_TwoMoons_filtered__LOSS_multiclass_combined_loss_softplus_alpha_0.5__SIZE10"
+    },
+    {
+        "timestamp": "2026-01-15 16:35:04",
+        "dataset": "TwoMoons",
+        "loss_function": "multiclass_combined_loss_softplus",
+        "alpha": 0.5,
+        "train_size": 30,
+        "accuracy": 82.0,
+        "duration": 19.295083045959473,
+        "output_file": "MODEL_ENSEMBLE_6_MultiClassClassifier__OPTIM_adam_opt__LR_0.01__BATCHSIZE_32__DATA_TwoMoons_filtered__LOSS_multiclass_combined_loss_softplus_alpha_0.5__SIZE30"
+    },
+    {
+        "timestamp": "2026-01-15 16:35:45",
+        "dataset": "TwoMoons",
+        "loss_function": "multiclass_combined_loss_softplus",
+        "alpha": 0.5,
+        "train_size": 100,
+        "accuracy": 88.5,
+        "duration": 41.06745386123657,
+        "output_file": "MODEL_ENSEMBLE_6_MultiClassClassifier__OPTIM_adam_opt__LR_0.01__BATCHSIZE_32__DATA_TwoMoons_filtered__LOSS_multiclass_combined_loss_softplus_alpha_0.5__SIZE100"
+    },
+    {
+        "timestamp": "2026-01-15 16:35:59",
+        "dataset": "TwoMoons",
+        "loss_function": "multiclass_combined_loss_sign",
+        "alpha": 0.5,
+        "train_size": 10,
+        "accuracy": 80.0,
+        "duration": 14.64847993850708,
+        "output_file": "MODEL_ENSEMBLE_6_MultiClassClassifier__OPTIM_adam_opt__LR_0.01__BATCHSIZE_32__DATA_TwoMoons_filtered__LOSS_multiclass_combined_loss_sign_alpha_0.5__SIZE10"
+    },
+    {
+        "timestamp": "2026-01-15 16:36:18",
+        "dataset": "TwoMoons",
+        "loss_function": "multiclass_combined_loss_sign",
+        "alpha": 0.5,
+        "train_size": 30,
+        "accuracy": 80.0,
+        "duration": 18.708652019500732,
+        "output_file": "MODEL_ENSEMBLE_6_MultiClassClassifier__OPTIM_adam_opt__LR_0.01__BATCHSIZE_32__DATA_TwoMoons_filtered__LOSS_multiclass_combined_loss_sign_alpha_0.5__SIZE30"
+    },
+    {
+        "timestamp": "2026-01-15 16:36:56",
+        "dataset": "TwoMoons",
+        "loss_function": "multiclass_combined_loss_sign",
+        "alpha": 0.5,
+        "train_size": 100,
+        "accuracy": 85.5,
+        "duration": 38.41711211204529,
+        "output_file": "MODEL_ENSEMBLE_6_MultiClassClassifier__OPTIM_adam_opt__LR_0.01__BATCHSIZE_32__DATA_TwoMoons_filtered__LOSS_multiclass_combined_loss_sign_alpha_0.5__SIZE100"
+    }
+]

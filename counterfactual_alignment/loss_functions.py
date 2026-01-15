@@ -653,6 +653,56 @@ def combined_loss(params, model, batch, rng, alpha=0.5):
 
 
 
+def multiclass_direction_common(params, model, batch, rng, loss_type='relu'):
+    X, Y, K = batch['X'], batch['Y'], batch['K']['vector']   # shapes: (N,D), (N,), (N,n,D)
+
+    jac_fn = jax.jacobian(predict_wrapper, argnums=2)
+    
+    jac_map = jax.vmap(jac_fn, in_axes=(None, None, 0, None), out_axes=0)
+    
+    g_y = jac_map(params, model, X, rng)
+    g_y_2 = jnp.array([g_y_i[y_i,:] for g_y_i,y_i in list(zip(g_y,Y))])
+
+    dir = K-X
+    dir_norm = dir / jnp.linalg.norm(dir, axis=1, keepdims=True)
+    directional_derivative = jnp.sum(g_y_2 * dir_norm, axis=1)  # shape (N,)
+    
+    if loss_type == 'relu':
+        loss = nn.relu(directional_derivative)
+    elif loss_type == 'softplus':
+        loss = nn.softplus(directional_derivative)
+    elif loss_type == 'sign':
+        loss = jnp.tanh(10.0 * directional_derivative) + 1.0
+    else:
+        loss = nn.relu(directional_derivative)
+
+    return jnp.mean(loss)
+
+def multiclass_direction_relu(params, model, batch, rng, config=None):
+    return multiclass_direction_common(params, model, batch, rng, loss_type='relu')
+
+def multiclass_direction_softplus(params, model, batch, rng, config=None):
+    return multiclass_direction_common(params, model, batch, rng, loss_type='softplus')
+
+def multiclass_direction_sign(params, model, batch, rng, config=None):
+    return multiclass_direction_common(params, model, batch, rng, loss_type='sign')
+
+
+def multiclass_combined_loss_common(params, model, batch, rng, alpha=0.5, direction_fn=multiclass_direction_relu):
+    ce_loss = multiclass_cross_entropy(params,model,batch,rng)
+    d_loss = direction_fn(params,model,batch,rng)
+    return (1 - alpha) * ce_loss + alpha * d_loss
+
+def multiclass_combined_loss_relu(params, model, batch, rng, alpha=0.5):
+    return multiclass_combined_loss_common(params, model, batch, rng, alpha, multiclass_direction_relu)
+
+def multiclass_combined_loss_softplus(params, model, batch, rng, alpha=0.5):
+    return multiclass_combined_loss_common(params, model, batch, rng, alpha, multiclass_direction_softplus)
+
+def multiclass_combined_loss_sign(params, model, batch, rng, alpha=0.5):
+    return multiclass_combined_loss_common(params, model, batch, rng, alpha, multiclass_direction_sign)
+
+
 def multiclass_combined_loss(params, model, batch, rng, alpha=0.5):
 
     ce_loss = multiclass_cross_entropy(params,model,batch,rng)
@@ -936,40 +986,6 @@ def multiclass_allcombined_loss_embedding(params, model, batch, rng, alpha=1):
     return (1 - alpha) * ce_loss + alpha * (gs_loss+d_loss)
 
 
-def multiclass_direction_common(params, model, batch, rng, loss_type='relu'):
-    X, Y, K = batch['X'], batch['Y'], batch['K']['vector']   # shapes: (N,D), (N,), (N,n,D)
-
-    jac_fn = jax.jacobian(predict_wrapper, argnums=2)
-    
-    jac_map = jax.vmap(jac_fn, in_axes=(None, None, 0, None), out_axes=0)
-    
-    g_y = jac_map(params, model, X, rng)
-    g_y_2 = jnp.array([g_y_i[y_i,:] for g_y_i,y_i in list(zip(g_y,Y))])
-
-    dir = K-X
-    dir_norm = dir / jnp.linalg.norm(dir, axis=1, keepdims=True)
-    directional_derivative = jnp.sum(g_y_2 * dir_norm, axis=1)  # shape (N,)
-    
-    if loss_type == 'relu':
-        loss = nn.relu(directional_derivative)
-    elif loss_type == 'softplus':
-        loss = nn.softplus(directional_derivative)
-    elif loss_type == 'sign':
-        loss = jnp.tanh(10.0 * directional_derivative) + 1.0
-    else:
-        loss = nn.relu(directional_derivative)
-
-    return jnp.mean(loss)
-
-def multiclass_direction_relu(params, model, batch, rng, config=None):
-    return multiclass_direction_common(params, model, batch, rng, loss_type='relu')
-
-def multiclass_direction_softplus(params, model, batch, rng, config=None):
-    return multiclass_direction_common(params, model, batch, rng, loss_type='softplus')
-
-def multiclass_direction_sign(params, model, batch, rng, config=None):
-    return multiclass_direction_common(params, model, batch, rng, loss_type='sign')
-
 
 def multiclass_split_loss_embedding_common(params, model, batch, rng, alpha=1, direction_fn=multiclass_direction_relu):
     
@@ -1102,6 +1118,9 @@ def direction_interactive( params, batch):
 loss_functions =   {'direction':direction,
                     'combined_loss':combined_loss,
                     'multiclass_combined_loss':multiclass_combined_loss,
+                    'multiclass_combined_loss_relu':multiclass_combined_loss_relu,
+                    'multiclass_combined_loss_softplus':multiclass_combined_loss_softplus,
+                    'multiclass_combined_loss_sign':multiclass_combined_loss_sign,
                     'multiclass_split_loss':multiclass_split_loss,
                     'combined_loss_embedding':combined_loss_embedding,
                     'multiclass_combined_loss_embedding':multiclass_combined_loss_embedding,

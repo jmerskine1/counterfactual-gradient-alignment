@@ -1,16 +1,16 @@
 data_params:
   boundary_only: false
-  dataset: XOR
+  dataset: TwoMoons
   knowledge_func: counterfactual
   max_delta: 1.0
   n_vec: 1
-  train_size: 30
+  train_size: 100
   validation_size: 200
 hyperparams:
   batch_size: 32
-  epochs: 30
+  epochs: 10
   learning_rate: 0.01
-  loss_function: multiclass_cross_entropy
+  loss_function: multiclass_combined_loss_sign
   loss_mix: 0.5
   model: multiclass
   model_io: !!python/tuple

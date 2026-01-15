@@ -85,6 +85,9 @@ rng, inp_rng, init_rng, dropout_rng, embedding_rng = jax.random.split(rng, 5)
 Model Parameters
 """
 loss_name = config['hyperparams']['loss_function'] # "direction", 'cross_entropy_batch', 'cross_entropy_l2', 'direction', 'direction_interactive' & more - see loss functions
+from functools import partial
+loss_function = partial(loss_functions[loss_name], alpha=config['hyperparams']['loss_mix'])
+
 learning_rate = config['hyperparams']['learning_rate']
 batch_size = config['hyperparams']['batch_size']
 
@@ -164,9 +167,9 @@ print("Loading and saving to : ", output_name)
 
 for i in range(n_models):
     # trained_state, model = create_train_state(ensemble['models'][i],ensemble['init_rngs'][i],optimiser,batch_size=batch_size,vector_length=n_vectors)
-    trained_state, model = ut.create_train_state(ensemble['models'][i],optimiser,vector_length=n_vectors,key = ensemble['init_rngs'][i])
+    trained_state = ut.create_train_state(ensemble['models'][i],optimiser,vector_length=n_vectors,key = ensemble['init_rngs'][i])
     ensemble['train_states'].append(trained_state)
-    ensemble['models'][i] = model
+    ensemble['models'][i] = ensemble['models'][i] #model
     ensemble['outputs']['params'][i] = trained_state.params
 
 
@@ -203,7 +206,7 @@ for epoch in tqdm(range(n_epochs)):
         trained_state = ensemble['train_states'][m]
         rng = ensemble['rngs'][m]
         for batch in training_dataloader:
-            trained_state, train_metrics = ut.train_one_epoch(trained_state, batch, model, loss_functions[loss_name],rng)
+            trained_state, train_metrics = ut.train_one_epoch(trained_state, batch, model, loss_function,rng)
             
         
         ensemble['outputs']['params'][m]=trained_state.params
