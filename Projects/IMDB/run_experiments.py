@@ -19,8 +19,8 @@ ALPHAS = [0.5]
 TRAIN_SIZES = [10, 100, 200]
 
 CONFIG_PATH = 'Projects/IMDB/config.yaml'
-RESULTS_FILE = 'Projects/IMDB/experiment_results_expanded.json'
-MANIFEST_FILE = 'Projects/IMDB/experiment_manifest.txt'
+RESULTS_FILE = 'Projects/IMDB/experiment_results_no_active.json'
+MANIFEST_FILE = 'Projects/IMDB/experiment_manifest_no_active.txt'
 
 def update_config(loss_fn, alpha, train_size):
     with open(CONFIG_PATH, 'r') as f:
@@ -45,7 +45,7 @@ def update_config(loss_fn, alpha, train_size):
     # I will modify the pipeline locally to support 'train_size' if needed, 
     # but first let's see if I can just use init_samplesize by changing the code.
     
-    config_text = re.sub(r'active_sampling: .*', 'active_sampling: True', config_text)
+    config_text = re.sub(r'active_sampling: .*', 'active_sampling: False', config_text)
     # We'll need to patch the pipeline to use init_samplesize from config.
     
     config_text = re.sub(r'visualise: .*', 'visualise: false', config_text)

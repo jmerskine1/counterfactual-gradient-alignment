@@ -1,5 +1,5 @@
 data_params:
-  active_sampling: true
+  active_sampling: false
   boundary_only: false
   dataset: integer_len32
   diversity: 0.8
