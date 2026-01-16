@@ -1,0 +1,110 @@
+[
+    {
+        "timestamp": "2026-01-15 16:12:13",
+        "loss_function": "cross_entropy",
+        "alpha": 0.0,
+        "train_size": 10,
+        "accuracy": 50.2,
+        "duration": 13.097768068313599,
+        "output_file": "MODEL_ENSEMBLE_1_BagOfWordsClassifierSimple__emb50_OPTIM_adamw__LR_0.0001__BATCHSIZE_32__trainsize_3414__active_True_smplsize_60_div0.8_LOSS_cross_entropy_mix_0.0"
+    },
+    {
+        "timestamp": "2026-01-15 16:12:26",
+        "loss_function": "cross_entropy",
+        "alpha": 0.0,
+        "train_size": 100,
+        "accuracy": 51.43,
+        "duration": 13.271854162216187,
+        "output_file": "MODEL_ENSEMBLE_1_BagOfWordsClassifierSimple__emb50_OPTIM_adamw__LR_0.0001__BATCHSIZE_32__trainsize_3414__active_True_smplsize_60_div0.8_LOSS_cross_entropy_mix_0.0"
+    },
+    {
+        "timestamp": "2026-01-15 16:12:40",
+        "loss_function": "cross_entropy",
+        "alpha": 0.0,
+        "train_size": 200,
+        "accuracy": 55.94,
+        "duration": 13.80272388458252,
+        "output_file": "MODEL_ENSEMBLE_1_BagOfWordsClassifierSimple__emb50_OPTIM_adamw__LR_0.0001__BATCHSIZE_32__trainsize_3414__active_True_smplsize_60_div0.8_LOSS_cross_entropy_mix_0.0"
+    },
+    {
+        "timestamp": "2026-01-15 16:12:56",
+        "loss_function": "combined_loss_embedding_relu",
+        "alpha": 0.5,
+        "train_size": 10,
+        "accuracy": 52.25,
+        "duration": 15.514518976211548,
+        "output_file": "MODEL_ENSEMBLE_1_BagOfWordsClassifierSimple__emb50_OPTIM_adamw__LR_0.0001__BATCHSIZE_32__trainsize_3414__active_True_smplsize_60_div0.8_LOSS_combined_loss_embedding_relu_mix_0.5"
+    },
+    {
+        "timestamp": "2026-01-15 16:13:13",
+        "loss_function": "combined_loss_embedding_relu",
+        "alpha": 0.5,
+        "train_size": 100,
+        "accuracy": 52.66,
+        "duration": 17.55736994743347,
+        "output_file": "MODEL_ENSEMBLE_1_BagOfWordsClassifierSimple__emb50_OPTIM_adamw__LR_0.0001__BATCHSIZE_32__trainsize_3414__active_True_smplsize_60_div0.8_LOSS_combined_loss_embedding_relu_mix_0.5"
+    },
+    {
+        "timestamp": "2026-01-15 16:13:32",
+        "loss_function": "combined_loss_embedding_relu",
+        "alpha": 0.5,
+        "train_size": 200,
+        "accuracy": 56.35,
+        "duration": 18.728304147720337,
+        "output_file": "MODEL_ENSEMBLE_1_BagOfWordsClassifierSimple__emb50_OPTIM_adamw__LR_0.0001__BATCHSIZE_32__trainsize_3414__active_True_smplsize_60_div0.8_LOSS_combined_loss_embedding_relu_mix_0.5"
+    },
+    {
+        "timestamp": "2026-01-15 16:13:48",
+        "loss_function": "combined_loss_embedding_softplus",
+        "alpha": 0.5,
+        "train_size": 10,
+        "accuracy": 51.02,
+        "duration": 15.955120086669922,
+        "output_file": "MODEL_ENSEMBLE_1_BagOfWordsClassifierSimple__emb50_OPTIM_adamw__LR_0.0001__BATCHSIZE_32__trainsize_3414__active_True_smplsize_60_div0.8_LOSS_combined_loss_embedding_softplus_mix_0.5"
+    },
+    {
+        "timestamp": "2026-01-15 16:14:05",
+        "loss_function": "combined_loss_embedding_softplus",
+        "alpha": 0.5,
+        "train_size": 100,
+        "accuracy": 55.12,
+        "duration": 17.404973030090332,
+        "output_file": "MODEL_ENSEMBLE_1_BagOfWordsClassifierSimple__emb50_OPTIM_adamw__LR_0.0001__BATCHSIZE_32__trainsize_3414__active_True_smplsize_60_div0.8_LOSS_combined_loss_embedding_softplus_mix_0.5"
+    },
+    {
+        "timestamp": "2026-01-15 16:14:24",
+        "loss_function": "combined_loss_embedding_softplus",
+        "alpha": 0.5,
+        "train_size": 200,
+        "accuracy": 63.11,
+        "duration": 18.436628103256226,
+        "output_file": "MODEL_ENSEMBLE_1_BagOfWordsClassifierSimple__emb50_OPTIM_adamw__LR_0.0001__BATCHSIZE_32__trainsize_3414__active_True_smplsize_60_div0.8_LOSS_combined_loss_embedding_softplus_mix_0.5"
+    },
+    {
+        "timestamp": "2026-01-15 16:14:39",
+        "loss_function": "combined_loss_embedding_sign",
+        "alpha": 0.5,
+        "train_size": 10,
+        "accuracy": 51.84,
+        "duration": 15.747132062911987,
+        "output_file": "MODEL_ENSEMBLE_1_BagOfWordsClassifierSimple__emb50_OPTIM_adamw__LR_0.0001__BATCHSIZE_32__trainsize_3414__active_True_smplsize_60_div0.8_LOSS_combined_loss_embedding_sign_mix_0.5"
+    },
+    {
+        "timestamp": "2026-01-15 16:14:57",
+        "loss_function": "combined_loss_embedding_sign",
+        "alpha": 0.5,
+        "train_size": 100,
+        "accuracy": 56.56,
+        "duration": 17.656998872756958,
+        "output_file": "MODEL_ENSEMBLE_1_BagOfWordsClassifierSimple__emb50_OPTIM_adamw__LR_0.0001__BATCHSIZE_32__trainsize_3414__active_True_smplsize_60_div0.8_LOSS_combined_loss_embedding_sign_mix_0.5"
+    },
+    {
+        "timestamp": "2026-01-15 16:15:16",
+        "loss_function": "combined_loss_embedding_sign",
+        "alpha": 0.5,
+        "train_size": 200,
+        "accuracy": 62.91,
+        "duration": 19.23874592781067,
+        "output_file": "MODEL_ENSEMBLE_1_BagOfWordsClassifierSimple__emb50_OPTIM_adamw__LR_0.0001__BATCHSIZE_32__trainsize_3414__active_True_smplsize_60_div0.8_LOSS_combined_loss_embedding_sign_mix_0.5"
+    }
+]
