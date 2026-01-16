@@ -204,7 +204,7 @@ train_size = len(full_training_set.Y)
 
 
 if active_sampling:
-    init_samplesize = 600
+    init_samplesize = config['data_params'].get('init_samplesize', 600)
     nprng = np.random.default_rng(123)
     subsample_indices = nprng.choice(train_size,init_samplesize,replace=False)
     unsampled = set(np.arange(0,train_size)) - set(subsample_indices)
@@ -237,10 +237,10 @@ output_name = (f"MODEL_ENSEMBLE_{n_models}_{model_name}__"
 print("Loading and saving to : ", output_name)
 
 for i in range(n_models):
-    trained_state, model = create_train_state(ensemble['models'][i],optimiser,vector_length=n_vectors, key=ensemble['init_rngs'][i])
+    trained_state = create_train_state(ensemble['models'][i],optimiser,vector_length=n_vectors, key=ensemble['init_rngs'][i])
     # trained_state, model = create_train_state(ensemble['models'][i],ensemble['init_rngs'][i],optimiser,batch_size=batch_size,vector_length=n_vectors)
     ensemble['train_states'].append(trained_state)
-    ensemble['models'][i] = model
+    ensemble['models'][i] = ensemble['models'][i]
     ensemble['outputs']['params'][i] = trained_state.params
 
 
