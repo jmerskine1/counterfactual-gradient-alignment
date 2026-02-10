@@ -1,0 +1,32 @@
+[
+    {
+        "alpha": 0.3,
+        "train_size": 10,
+        "accuracy": 47.35
+    },
+    {
+        "alpha": 0.3,
+        "train_size": 100,
+        "accuracy": 54.29
+    },
+    {
+        "alpha": 0.3,
+        "train_size": 200,
+        "accuracy": 59.59
+    },
+    {
+        "alpha": 0.5,
+        "train_size": 10,
+        "accuracy": 46.94
+    },
+    {
+        "alpha": 0.5,
+        "train_size": 100,
+        "accuracy": 56.73
+    },
+    {
+        "alpha": 0.5,
+        "train_size": 200,
+        "accuracy": 60.82
+    }
+]

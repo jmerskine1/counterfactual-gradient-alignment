@@ -83,7 +83,7 @@ n_epochs = config['hyperparams']['epochs']
 overwrite = True
 
 n_vectors = len(datasets['train']['original']['X'][0])
-train_size = len(datasets['train']['original']['Y'])
+train_size = config['data_params']['train_size']
 
 rng = jax.random.PRNGKey(42)
 rng, inp_rng, init_rng, dropout_rng, embedding_rng = jax.random.split(rng, 5)
@@ -215,6 +215,7 @@ if False:
     
     print(f"Train dataset reduced to {len(training_set)} samples.")
 
+nprng = np.random.default_rng(123)
 if active_sampling:
     print(f"Active sampling enabled. Initialising with subset of data. Original train size: {full_training_set.X.shape[0]}")
     init_samplesize = config['data_params']['init_samplesize']
@@ -225,7 +226,8 @@ if active_sampling:
     unsampled = set(np.arange(0,train_size)) - set(subsample_indices)
     training_set = full_training_set.subset(subsample_indices)
 else:
-    training_set = full_training_set
+    subsample_indices = nprng.choice(len(full_training_set),train_size,replace=False)
+    training_set = full_training_set.subset(subsample_indices)
 
 print(f"Training on {len(training_set)} samples.")
 seed = 42

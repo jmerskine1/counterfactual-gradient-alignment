@@ -8,6 +8,10 @@ import torch.utils.data as data
 from counterfactual_alignment.utilities import visualise_classes, expand_data, boundary_filter, jagged_lists_to_array, convert_to_list_of_lists
 from scipy.stats import multivariate_normal as mvn
 from sklearn import datasets as sk_datasets
+from sklearn.ensemble import AdaBoostClassifier
+from sklearn.tree import DecisionTreeClassifier
+
+
 
 
 
@@ -43,7 +47,7 @@ class customDataset(data.Dataset):
         except:
             pass
         # self.text          = np.delete(self.text,idx)
-        self.X             = np.delete(self.X,idx)
+        self.X             = np.delete(self.X,idx,axis=0)
         self.Y             = np.delete(self.Y,idx)
 
         # for i in range(len(self.K['vector'][idx])):
@@ -206,53 +210,86 @@ class XSQUARED():
             return np.array([int(z[0]>=0) for z in Z])
 
 
+# class XOR():
+#                 #self, x, y, variance = 1, covariance='default', n_vec=3, n_samples=10, max_delta=1.0
+#     def __init__(self, rng, size):
+#         """
+#         Inputs  | rng   : Pseudo-random number generator
+#                 | size  : Size of dataset
+#         Outputs | X     : X,Y cooridnates of observations
+#                 | Y     : Class label ([0,1...n])
+#                 | K     : Knowledge - empty dict, for storing directional info
+#         """        
+        
+#         self.X = np.array(rng.randint(low=0, high=2, size=(size, 2)).astype(np.float32))
+#         self.Y = np.array((self.X.sum(axis=1) == 1).astype(np.int32))
+#         self.X += rng.normal(loc=0.0, scale=0.1, size=self.X.shape) # Add gaussian noise
+        
+#         self.K = None
+
+#     def optimum_classifier(self, z, probabilities=True):
+#         """
+#         Inputs  | z:      x,y coordinates of data to be classified.
+#         Outputs | probs:  array of probabilities for each class for input data.
+#         """
+#         probs = np.empty(0)
+#         for p in z:
+#             if p[0] <= 0.5 and p[1] <= 0.5:
+#                 probs = jnp.append(probs,0)
+#             elif p[0] > 0.5 and p[1] > 0.5:
+#                 probs = jnp.append(probs,0)
+#             elif p[0] < 0.5 and p[1] >= 0.5:
+#                 probs = jnp.append(probs,1)
+#             elif p[0] >= 0.5 and p[1] < 0.5:
+#                 probs = jnp.append(probs,1)
+
+#         probs = np.array([probs,abs(probs-1)])
+
+#         if not probabilities:
+#             probs = np.round(probs).astype(np.int32)
+        
+#         self.probs = probs
+#         # print('SHAPE OF opt probs: ',np.shape(probs))
+#         # print('Example: ',probs)
+#         # print('SHAPE OF opt output: ',np.shape(np.atleast_1d(np.argmax(probs,axis=0))))
+#         # print('Example: ',np.atleast_1d(np.argmax(probs,axis=0)))
+#         return np.atleast_1d(np.argmax(probs,axis=0))
+
 class XOR():
-                #self, x, y, variance = 1, covariance='default', n_vec=3, n_samples=10, max_delta=1.0
     def __init__(self, rng, size):
         """
         Inputs  | rng   : Pseudo-random number generator
                 | size  : Size of dataset
-        Outputs | X     : X,Y cooridnates of observations
-                | Y     : Class label ([0,1...n])
-                | K     : Knowledge - empty dict, for storing directional info
-        """        
-        
-        self.X = np.array(rng.randint(low=0, high=2, size=(size, 2)).astype(np.float32))
-        self.Y = np.array((self.X.sum(axis=1) == 1).astype(np.int32))
-        self.X += rng.normal(loc=0.0, scale=0.1, size=self.X.shape) # Add gaussian noise
-        
+        Outputs | X     : X,Y coordinates of observations
+                | Y     : Class labels
+                | K     : Knowledge (None)
+        """
+        self.X = rng.randint(low=0, high=2, size=(size, 2)).astype(np.float32)
+        self.Y = (self.X.sum(axis=1) == 1).astype(np.int32)
+
+        # Add Gaussian noise
+        self.X += rng.normal(loc=0.0, scale=0.1, size=self.X.shape)
+
         self.K = None
 
-        # self.K = np.empty_like(self.Y)
-    
     def optimum_classifier(self, z, probabilities=True):
         """
-        Inputs  | z:      x,y coordinates of data to be classified.
-        Outputs | probs:  array of probabilities for each class for input data.
+        Deterministic XOR classifier.
+        Inputs  | z : array of shape (N, 2)
+        Outputs | labels : array of shape (N,)
         """
-        probs = np.empty(0)
-        for p in z:
-            if p[0] <= 0.5 and p[1] <= 0.5:
-                probs = jnp.append(probs,0)
-            elif p[0] > 0.5 and p[1] > 0.5:
-                probs = jnp.append(probs,0)
-            elif p[0] < 0.5 and p[1] >= 0.5:
-                probs = jnp.append(probs,1)
-            elif p[0] >= 0.5 and p[1] < 0.5:
-                probs = jnp.append(probs,1)
+        z = np.asarray(z)
+        x1 = z[:, 0]
+        x2 = z[:, 1]
 
-        probs = np.array([probs,abs(probs-1)])
+        # XOR decision rule
+        labels = (
+            ((x1 < 0.5) & (x2 >= 0.5)) |
+            ((x1 >= 0.5) & (x2 < 0.5))
+        ).astype(np.int32)
 
-        if not probabilities:
-            probs = np.round(probs).astype(np.int32)
-        
-        self.probs = probs
-        # print('SHAPE OF opt probs: ',np.shape(probs))
-        # print('Example: ',probs)
-        # print('SHAPE OF opt output: ',np.shape(np.atleast_1d(np.argmax(probs,axis=0))))
-        # print('Example: ',np.atleast_1d(np.argmax(probs,axis=0)))
-        return np.atleast_1d(np.argmax(probs,axis=0))
-    
+        return labels
+
 
 
 class Gaussian():
@@ -311,13 +348,14 @@ class TwoMoons():
                 | Y     : Class label ([0,1...n])
                 | K     : Knowledge - empty dict, for storing directional info
         """
-        self.X, self.Y = sk_datasets.make_moons(size,random_state=rng)
+        self.X, self.Y = sk_datasets.make_moons(size,random_state=rng,noise=0.1)
+        self.learn_X, self.learn_Y = sk_datasets.make_moons(1000,random_state=rng,noise=0.1)
         self.K = {}
         # self.K = np.empty_like(self.Y)
 
         # 3. Train a near-optimal classifier
         self.clf = SVC(kernel='rbf', C=10, gamma='scale', probability=True, random_state=42)
-        self.clf.fit(self.X, self.Y)
+        self.clf.fit(self.learn_X, self.learn_Y)
 
 
     def optimum_classifier(self, z, probabilities=True):
@@ -349,6 +387,372 @@ class TwoMoons():
         
 
 
+# class Blobs():
+#     def __init__(self, rng, size):
+#         """
+#         Inputs  | rng   : Pseudo-random number generator
+#                 | size  : Size of dataset
+#         Outputs | X     : X,Y cooridnates of observations
+#                 | Y     : Class label ([0,1...n])
+#                 | K     : Knowledge - empty dict, for storing directional info
+#         """
+        
+#         self.X, self.Y = sk_datasets.make_blobs(
+#                                     n_samples=size,
+#                                     centers=4,
+#                                     n_features=2,
+#                                     cluster_std=0.8,   # small variance = separable
+#                                     center_box=(-10, 10),
+#                                     random_state=rng
+#                                 )
+#         # self.X, self.Y = sk_datasets.make_moons(size,random_state=rng,noise=0.1)
+        
+#         self.learn_X, self.learn_Y = sk_datasets.make_blobs(
+#                                     n_samples=4000,
+#                                     centers=4,
+#                                     n_features=2,
+#                                     cluster_std=0.8,   # small variance = separable
+#                                     center_box=(-10, 10),
+#                                     random_state=rng
+#                                 )
+#         # self.learn_X, self.learn_Y = sk_datasets.make_moons(1000,random_state=rng,noise=0.1)
+#         self.K = {}
+#         # self.K = np.empty_like(self.Y)
+
+#         # 3. Train a near-optimal classifier
+#                 # 3. Train a near-optimal classifier
+#         self.clf = SVC(kernel='rbf', C=10, gamma='scale', probability=True, random_state=42)
+#         self.clf.fit(self.learn_X, self.learn_Y)
+
+from sklearn.mixture import GaussianMixture
+import numpy as np
+
+# class Blobs():
+#     def __init__(self, rng, size):
+
+#         rng = np.random.default_rng(rng)
+
+#         # Define mixture model ONCE
+#         self.gmm = GaussianMixture(
+#             n_components=4,
+#             covariance_type='full',
+#             random_state=42
+#         )
+
+#         # Fit it on an initial sample (or define params manually)
+#         X_init, _ = sk_datasets.make_blobs(
+#             n_samples=10000,
+#             centers=4,
+#             n_features=2,
+#             cluster_std=1.5,
+#             center_box=(-5, 5),
+#             random_state=42
+#         )
+#         X, Y = make_blobs(
+#             n_samples=[400, 400, 400, 400, 400],
+#             centers=[(-4,-4), (4,-4), (-4,4), (4,4), (0,0)],
+#             cluster_std=1.0,
+#             random_state=42
+#         )
+
+#         # Merge blob 0 and 1 into class 0
+#         Y[Y == 1] = 0
+#         Y[Y >= 2] -= 1
+
+
+#         self.gmm.fit(X_init)
+
+#         # Sample twice from the SAME distribution
+#         self.X, self.Y = self.gmm.sample(size)
+#         self.learn_X, self.learn_Y = self.gmm.sample(4000)
+
+#         self.K = {}
+
+#         # Train classifier
+#         self.clf = SVC(kernel='rbf', C=10, gamma='scale', probability=True, random_state=42)
+#         self.clf.fit(self.learn_X, self.learn_Y)
+
+class Blobs():
+    def __init__(self, rng, size):
+
+        rng = np.random.default_rng(rng)
+
+            # # ---- Base data definition (the real distribution) ----
+            # X_base, Y_base = sk_datasets.make_blobs(
+            #     n_samples=[400, 400, 400, 400, 400],
+            #     # centers=[(-4,-4), (4,-4), (-4,4), (4,4), (0,0)],
+            #     centers=[(-4,4), (-4,-4), (4,4), (4,0), (0,0)],
+            #     cluster_std=1.0,
+            #     random_state=42
+            # )
+
+            # # Merge blob 0 and 1 into class 0
+            # Y_base[Y_base == 1] = 0
+            # Y_base[Y_base >= 2] -= 1
+            # # Final classes: 0,1,2,3
+            # ---- Irregular multi-modal distribution ----
+        centers = [
+            (-7,  6), (-4,  3), (-6, -2),      # class 0 (3 blobs, scattered)
+            (-1,  5), ( 2,  7),                # class 1 (2 blobs, vertical)
+            ( 5,  5), ( 7,  2), ( 4, -1),      # class 2 (3 blobs, diagonal)
+            (-2, -5), ( 1, -6),                # class 3 (2 blobs, bottom)
+            ( 6, -6),                          # class 4 (single tight blob)
+            ( 0,  0), ( 3,  1)                 # class 5 (central, overlapping-ish)
+        ]
+
+        n_samples = [
+            300, 300, 300,    # class 0
+            400, 300,         # class 1
+            250, 250, 250,    # class 2
+            400, 300,         # class 3
+            500,              # class 4
+            350, 350          # class 5
+        ]
+
+        cluster_std = [
+            0.8, 1.2, 0.6,
+            1.0, 0.7,
+            0.9, 1.1, 0.8,
+            1.0, 1.3,
+            0.5,
+            1.2, 0.9
+        ]
+
+        X_base, Y_blob = sk_datasets.make_blobs(
+            n_samples=n_samples,
+            centers=centers,
+            cluster_std=cluster_std,
+            random_state=42
+        )
+
+        # ---- Blob → class mapping ----
+        blob_to_class = {
+            0: 0, 1: 0, 2: 0,        # scattered triple blob
+            3: 1, 4: 1,             # vertical pair
+            5: 2, 6: 2, 7: 2,       # diagonal chain
+            8: 3, 9: 3,             # bottom pair
+            10: 4,                  # isolated island
+            11: 5, 12: 5            # central, overlapping
+        }
+
+        Y_base = np.array([blob_to_class[b] for b in Y_blob])
+
+
+        # ---- GMM fit ----
+        self.gmm = GaussianMixture(
+            n_components=len(centers),          # match original blobs
+            covariance_type='full',
+            random_state=42
+        )
+        self.gmm.fit(X_base)
+
+        # ---- Sampling ----
+        self.X, self.Y = self.gmm.sample(size)
+        self.learn_X, self.learn_Y = self.gmm.sample(4000)
+
+        # Apply SAME label merge to GMM samples
+        for Y in (self.Y, self.learn_Y):
+            Y[Y == 1] = 0
+            Y[Y >= 2] -= 1
+
+        # ---- Train classifier ----
+        self.clf = SVC(
+            kernel='rbf',
+            C=10,
+            gamma='scale',
+            probability=True,
+            random_state=42
+        )
+        self.clf.fit(self.learn_X, self.learn_Y)
+
+        self.K = {}
+
+
+    def optimum_classifier(self, z, probabilities=True):
+        """
+        Deterministic hardcoded classifier for the make_moons dataset.
+        Takes a single input vector z = [x1, x2] and returns class 0 or 1.
+
+        Parameters:
+            z (np.ndarray): Input 2D point (shape: (2,)).
+
+        Returns:
+            int: Predicted label (0 or 1).
+        """
+        # return predictions
+        return self.clf.predict(z)
+
+
+class GaussianQuartiles():
+    def __init__(self, rng, size):
+        """
+        Inputs  | rng   : Pseudo-random number generator
+                | size  : Size of dataset
+        Outputs | X     : X,Y cooridnates of observations
+                | Y     : Class label ([0,1...n])
+                | K     : Knowledge - empty dict, for storing directional info
+        """
+        # self.X, self.Y = sk_datasets.make_moons(size,random_state=rng,noise=0.1)
+        self.X, self.Y = sk_datasets.make_gaussian_quantiles(n_samples=size,n_features = 2,n_classes=4,random_state=rng,cov=2.0)
+        self.learn_X, self.learn_Y = sk_datasets.make_gaussian_quantiles(n_samples=2000,n_features = 2,n_classes=4,random_state=rng,cov=2.0)
+        # self.learn_X, self.learn_Y = sk_datasets.make_moons(1000,random_state=rng,noise=0.1)
+        self.K = {}
+        # self.K = np.empty_like(self.Y)
+
+        # 3. Train a near-optimal classifier
+        self.clf = SVC(kernel='rbf', C=10, gamma='scale', probability=True, random_state=42)
+        self.clf.fit(self.learn_X, self.learn_Y)
+
+
+    def optimum_classifier(self, z, probabilities=True):
+        """
+        Deterministic hardcoded classifier for the make_moons dataset.
+        Takes a single input vector z = [x1, x2] and returns class 0 or 1.
+
+        Parameters:
+            z (np.ndarray): Input 2D point (shape: (2,)).
+
+        Returns:
+            int: Predicted label (0 or 1).
+        """
+        # return predictions
+        return self.clf.predict(z)
+
+
+
+class GaussianQuartilesHard():
+    def __init__(self, rng, size):
+        """
+        Inputs  | rng   : Pseudo-random number generator
+                | size  : Size of dataset
+        Outputs | X     : X,Y cooridnates of observations
+                | Y     : Class label ([0,1...n])
+                | K     : Knowledge - empty dict, for storing directional info
+        """
+        # self.X, self.Y = sk_datasets.make_moons(size,random_state=rng,noise=0.1)
+
+        # Construct dataset
+        X1, y1 = sk_datasets.make_gaussian_quantiles(
+            cov=2.0, n_samples=int(size/5*2), n_features=2, n_classes=2, random_state=1
+        )
+        X2, y2 = sk_datasets.make_gaussian_quantiles(
+            mean=(3, 3), cov=1.5, n_samples=int(size/5*3), n_features=2, n_classes=2, random_state=1
+        )
+        self.X = np.concatenate((X1, X2))
+        self.Y = np.concatenate((y1, -y2 + 1))
+
+        # Create and fit an AdaBoosted decision tree
+        # self.bdt = AdaBoostClassifier(DecisionTreeClassifier(max_depth=1), n_estimators=200)
+        # self.bdt.fit(self.X, self.Y)
+
+        # self.X, self.Y = sk_datasets.make_gaussian_quantiles(n_samples=size,n_features = 2,n_classes=4,random_state=rng,cov=2.0)
+
+        # Construct dataset
+        X3, y3 = sk_datasets.make_gaussian_quantiles(
+            cov=2.0, n_samples=1000, n_features=2, n_classes=2, random_state=1
+        )
+        X4, y4 = sk_datasets.make_gaussian_quantiles(
+            mean=(3, 3), cov=1.5, n_samples=1500, n_features=2, n_classes=2, random_state=1
+        )
+        self.learn_X = np.concatenate((X3, X4))
+        self.learn_y = np.concatenate((y3, -y4 + 1))
+
+        # self.learn_X, self.learn_Y = sk_datasets.make_gaussian_quantiles(n_samples=2000,n_features = 2,n_classes=4,random_state=rng,cov=2.0)
+        # self.learn_X, self.learn_Y = sk_datasets.make_moons(1000,random_state=rng,noise=0.1)
+        self.K = {}
+        # self.K = np.empty_like(self.Y)
+
+        # 3. Train a near-optimal classifier
+        # self.clf = SVC(kernel='rbf', C=10, gamma='scale', probability=True, random_state=42)
+        # self.clf.fit(self.learn_X, self.learn_Y)
+        # Create and fit an AdaBoosted decision tree
+        self.bdt = AdaBoostClassifier(DecisionTreeClassifier(max_depth=1), n_estimators=200)
+        self.bdt.fit(self.learn_X, self.learn_y)
+
+
+    def optimum_classifier(self, z, probabilities=True):
+        """
+        Deterministic hardcoded classifier for the make_moons dataset.
+        Takes a single input vector z = [x1, x2] and returns class 0 or 1.
+
+        Parameters:
+            z (np.ndarray): Input 2D point (shape: (2,)).
+
+        Returns:
+            int: Predicted label (0 or 1).
+        """
+        # return predictions
+        return self.bdt.predict(z)
+
+
+
+
+class GaussianQuartilesHardMulticlass():
+    def __init__(self, rng, size):
+        """
+        Inputs  | rng   : Pseudo-random number generator
+                | size  : Size of dataset
+        Outputs | X     : X,Y cooridnates of observations
+                | Y     : Class label ([0,1...n])
+                | K     : Knowledge - empty dict, for storing directional info
+        """
+        # self.X, self.Y = sk_datasets.make_moons(size,random_state=rng,noise=0.1)
+
+        # Construct dataset
+        X1, y1 = sk_datasets.make_gaussian_quantiles(
+            cov=2.0, n_samples=int(size/5*2), n_features=2, n_classes=3, random_state=1
+        )
+        X2, y2 = sk_datasets.make_gaussian_quantiles(
+            mean=(3, 3), cov=1.5, n_samples=int(size/5*3), n_features=2, n_classes=3, random_state=1
+        )
+        self.X = np.concatenate((X1, X2))
+        self.Y = np.concatenate((y1, -y2 + 1))
+
+        # Create and fit an AdaBoosted decision tree
+        # self.bdt = AdaBoostClassifier(DecisionTreeClassifier(max_depth=1), n_estimators=200)
+        # self.bdt.fit(self.X, self.Y)
+
+        # self.X, self.Y = sk_datasets.make_gaussian_quantiles(n_samples=size,n_features = 2,n_classes=4,random_state=rng,cov=2.0)
+
+        # Construct dataset
+        X3, y3 = sk_datasets.make_gaussian_quantiles(
+            cov=2.0, n_samples=1000, n_features=2, n_classes=3, random_state=1
+        )
+        X4, y4 = sk_datasets.make_gaussian_quantiles(
+            mean=(3, 3), cov=1.5, n_samples=1500, n_features=2, n_classes=3, random_state=1
+        )
+        self.learn_X = np.concatenate((X3, X4))
+        self.learn_y = np.concatenate((y3, -y4 + 1))
+
+        # self.learn_X, self.learn_Y = sk_datasets.make_gaussian_quantiles(n_samples=2000,n_features = 2,n_classes=4,random_state=rng,cov=2.0)
+        # self.learn_X, self.learn_Y = sk_datasets.make_moons(1000,random_state=rng,noise=0.1)
+        self.K = {}
+        # self.K = np.empty_like(self.Y)
+
+        # 3. Train a near-optimal classifier
+        # self.clf = SVC(kernel='rbf', C=10, gamma='scale', probability=True, random_state=42)
+        # self.clf.fit(self.learn_X, self.learn_Y)
+        # Create and fit an AdaBoosted decision tree
+        self.bdt = AdaBoostClassifier(DecisionTreeClassifier(max_depth=2), n_estimators=200)
+        self.bdt.fit(self.learn_X, self.learn_y)
+
+
+    def optimum_classifier(self, z, probabilities=True):
+        """
+        Deterministic hardcoded classifier for the make_moons dataset.
+        Takes a single input vector z = [x1, x2] and returns class 0 or 1.
+
+        Parameters:
+            z (np.ndarray): Input 2D point (shape: (2,)).
+
+        Returns:
+            int: Predicted label (0 or 1).
+        """
+        # return predictions
+        return self.bdt.predict(z)
+
+
+
 class Circles():
     def __init__(self, rng, size):
         """
@@ -377,7 +781,15 @@ class Circles():
         # print(z, [np.sqrt(z_i[0]**2 + z_i[1]**2)for z_i in z] ,np.array([int(np.sqrt(z_i[0]**2 + z_i[1]**2) <= 0.5) for z_i in z]))
         return np.array([int(abs(np.sqrt(z_i[0]**2 + z_i[1]**2)) <= self.decision_boundary) for z_i in z])
 
-datasets = {'Gaussian':Gaussian,'XOR':XOR, 'TwoMoons':TwoMoons, 'Circles':Circles, "XSQUARED":XSQUARED}
+datasets = {'Gaussian':Gaussian,
+            'XOR':XOR, 
+            'TwoMoons':TwoMoons, 
+            'Circles':Circles, 
+            "XSQUARED":XSQUARED,
+            "GaussianQuartiles":GaussianQuartiles,
+            "GaussianQuartilesHard":GaussianQuartilesHard,
+            "GaussianQuartilesHardMulticlass":GaussianQuartilesHardMulticlass,
+            "Blobs":Blobs}
 
 class genCustomDataset(data.Dataset):
 
@@ -407,6 +819,7 @@ class genCustomDataset(data.Dataset):
     self.Y = self.data.Y
     self.K = self.data.K
     self.n_vec = n_vec
+    
 
     if knowledge_func != None and train:
         self.K = self.knowledge_func(self.X,self.data.optimum_classifier,n_vec=self.n_vec) # to this(self,knowledge_func=self.knowledge_func)
@@ -415,7 +828,7 @@ class genCustomDataset(data.Dataset):
         print("Warning: Training data with no knowledge function.")
 
     if visualise:
-        visualise_classes(self.data,knowledge=bool(knowledge_func))
+        visualise_classes(self,knowledge=bool(knowledge_func))
 
 
   def drop(self, idx):

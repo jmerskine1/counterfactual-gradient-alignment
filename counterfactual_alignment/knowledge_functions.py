@@ -55,7 +55,7 @@ def random_vectors(dataset, dims = 2, n_vec=3, n_samples=10, max_delta=1.0):
     return directions, direction_label, direction_distance
 
 
-def counterfactual_vector(X, classifier, dims = 2, n_vec=3, n_samples=10, max_delta=1.0):
+def counterfactual_vector(X, classifier, Z,dims = 2, n_vec=3, n_samples=10, max_delta=1.0):
     print(f"Generating {n_vec} counterfactual directions...")
   # Lets generate the nearest point where the classification boundary changes
     # For now, generate the nearest n_vec counterfactuals, and keep the rest the same?
@@ -71,7 +71,7 @@ def counterfactual_vector(X, classifier, dims = 2, n_vec=3, n_samples=10, max_de
         
 
     cf_explainer = fatf_cf.CounterfactualExplainer(predictive_function = classifier,
-                                                      dataset = X,
+                                                      dataset = Z,
                                                       categorical_indices=[],
                                                       default_numerical_step_size=0.1)
     
@@ -79,8 +79,11 @@ def counterfactual_vector(X, classifier, dims = 2, n_vec=3, n_samples=10, max_de
     
     direction_label = np.zeros((len(X),n_vec))
     direction_distance = np.zeros((len(X),n_vec))
-
-    for i, x in tqdm(enumerate(X)):
+    if len(np.shape(X))==1:
+        X = np.array([X])
+    
+    for i, x in enumerate(tqdm(X)):
+        # print("x: ",np.shape(x))
         if subsample:
             if i in K_i:
                 dir, distance = gen_best_vec(x,cf_explainer)
@@ -95,13 +98,16 @@ def counterfactual_vector(X, classifier, dims = 2, n_vec=3, n_samples=10, max_de
             dir, distance = gen_best_vec(x,cf_explainer)
             
             # single label version
-            directions[i,0, :] = dir
+            directions[i,0, :] = np.array(dir)
             direction_label[i,0] = -1
             direction_distance[i,0] = distance
-    
-    K = {'vector'    :directions, 
-         'label'     :direction_label,
-         'magnitude' :direction_distance}
+    # print(f'directions for labels: {np.shape(directions)}')
+    K = {'origins'    :X,
+         'vectors'    :[dir], 
+         'labels'     :classifier(X),}
+        #  'vector'    :directions, 
+        #  'label'     :direction_label,
+        #  'magnitude' :direction_distance}
     
     return K
 
@@ -133,7 +139,7 @@ def counterfactual(X, classifier, dims = 2, n_vec=3, n_samples=10, max_delta=1.0
     direction_label = np.zeros((len(X),n_vec))
     direction_distance = np.zeros((len(X),n_vec))
 
-    for i, x in tqdm(enumerate(X)):
+    for i, x in enumerate(tqdm(X)):
         if subsample:
             if i in K_i:
                 dir, distance = gen_best_vec(x,cf_explainer)
@@ -376,43 +382,129 @@ def get_unit_vec(a, b):
         return np.zeros_like(v), 0.0
     return v / n, n
 
+def find_boundary_segment_adaptive(
+    X_start,
+    classifier,
+    Z,
+    initial_radius=0.2,
+    radius_growth=1.5,
+    max_radius=5.0,
+    k=10
+):
+    """
+    Adaptively expands the search region around X_start
+    until a class boundary is found.
+    """
+    radius = initial_radius
 
-def find_boundary_segment(X_start, classifier, Z, k=10):
+    while radius <= max_radius:
+        # Select points within radius
+        distances = np.linalg.norm(Z - X_start, axis=1)
+        Z_local = Z[distances <= radius]
+
+        # Need at least k+1 points (including X_start)
+        if len(Z_local) > k:
+            try:
+                return find_boundary_segment(
+                    X_start=X_start,
+                    classifier=classifier,
+                    Z=Z_local,
+                    k=min(k, len(Z_local) - 1),
+                )
+            except RuntimeError:
+                pass  # Expand and retry
+
+        radius *= radius_growth
+
+    raise RuntimeError("No class boundary found after adaptive expansion")
+
+def find_boundary_segment(X_start, classifier, Z, k=10, max_k=500):
     """
     Returns (x_same, x_flip):
     x_same -> last point with same class as X_start
     x_flip -> first neighboring point with different class
     """
 
+    X_start = np.asarray(X_start)
+
+    # Always include start point
     Z = np.vstack([Z, X_start])
     start_idx = len(Z) - 1
 
     labels = classifier(Z)
+    
     start_label = labels[start_idx]
 
-    nbrs = NearestNeighbors(n_neighbors=k).fit(Z)
-    distances, indices = nbrs.kneighbors(Z)
+    # 🔑 KEY FIX: progressively increase neighborhood size
+    for k_try in range(k, min(max_k, len(Z)), k):
 
-    visited = set()
-    pq = [(0.0, start_idx)]
+        nbrs = NearestNeighbors(n_neighbors=k_try).fit(Z)
+        distances, indices = nbrs.kneighbors(Z)
 
-    while pq:
-        cost, node = heapq.heappop(pq)
+        visited = set()
+        pq = [(0.0, start_idx)]
 
-        if node in visited:
-            continue
-        visited.add(node)
+        while pq:
+            cost, node = heapq.heappop(pq)
 
-        for neigh, d in zip(indices[node], distances[node]):
-            if neigh in visited:
+            if node in visited:
                 continue
+            visited.add(node)
 
-            if labels[neigh] != start_label:
-                return Z[node], Z[neigh]
+            for neigh, d in zip(indices[node], distances[node]):
+                if neigh in visited:
+                    continue
 
-            heapq.heappush(pq, (cost + d, neigh))
+                if labels[neigh] != start_label:
+                    return Z[node], Z[neigh]
 
-    raise RuntimeError("No class boundary found")
+                heapq.heappush(pq, (cost + d, neigh))
+
+    raise RuntimeError("No class boundary found after expanding neighborhood")
+
+
+# def find_boundary_segment(X_start, classifier, Z, k=10):
+#     """
+#     Returns (x_same, x_flip):
+#     x_same -> last point with same class as X_start
+#     x_flip -> first neighboring point with different class
+#     """
+    
+#     Z = np.vstack([Z, X_start])
+#     print(Z)
+#     start_idx = len(Z) - 1
+
+#     labels = classifier(Z)
+#     print(labels)
+
+#     import matplotlib.pyplot as plt
+#     plt.scatter(Z[:,0],Z[:,1],c=labels)
+#     plt.show()
+#     start_label = labels[start_idx]
+
+#     nbrs = NearestNeighbors(n_neighbors=k).fit(Z)
+#     distances, indices = nbrs.kneighbors(Z)
+
+#     visited = set()
+#     pq = [(0.0, start_idx)]
+
+#     while pq:
+#         cost, node = heapq.heappop(pq)
+
+#         if node in visited:
+#             continue
+#         visited.add(node)
+
+#         for neigh, d in zip(indices[node], distances[node]):
+#             if neigh in visited:
+#                 continue
+
+#             if labels[neigh] != start_label:
+#                 return Z[node], Z[neigh]
+
+#             heapq.heappush(pq, (cost + d, neigh))
+
+#     raise RuntimeError("No class boundary found")
 
 
 def boundary_bisection(
@@ -458,13 +550,13 @@ def counterfactual_breadcrumbs(
     X_start,
     classifier,
     Z,
-    n_breadcrumbs=3,
+    n_vec=3,
     k=50
 ):
     """
     Main entry point
     """
-
+    
     # 1. Locate nearest boundary edge
     x_same, x_flip = find_boundary_segment(
         X_start=X_start,
@@ -484,14 +576,14 @@ def counterfactual_breadcrumbs(
     points = sample_towards_boundary(
         X_start,
         x_boundary,
-        n_breadcrumbs
+        n_vec
     )
 
     origins = points
     vectors = np.zeros_like(origins)
 
-    for i in range(n_breadcrumbs):
-        next_pt = points[i + 1] if i < n_breadcrumbs - 1 else x_boundary
+    for i in range(n_vec):
+        next_pt = points[i + 1] if i < n_vec - 1 else x_boundary
         vectors[i], _ = get_unit_vec(origins[i], next_pt)
 
     return {
@@ -569,5 +661,7 @@ def interactive_vector(dataset, dims = 2, n_vec=3, n_samples=10, max_delta=1.0):
 
 knowledge_functions = {'random':random_vectors,
              'counterfactual':counterfactual_vector,
-             'interactive':interactive_vector}
+             'counterfactual_breadcrumbs':counterfactual_breadcrumbs,
+             'interactive':interactive_vector,
+             'None':None}
              

@@ -152,19 +152,267 @@ cmapList= list(colormaps)
 #         return fig,ax
 
 
-def plot_results(results, path=None, xlims=None, ylims=None, loss=False, labels=None, show_max=False, title=None):
+# def plot_results(results, path=None, xlims=None, ylims=None, loss=False, labels=None, show_max=False, title=None):
+    
+#     if type(results) != list:
+#         results = [results]
+#     sns_pal = sns.color_palette("hls", len(results))
+#     cmaps = list(colormaps)
+#     fig = plt.figure(figsize=(8, 8))
+#     ax = fig.add_subplot(111)
+#     ax_loss = ax.twinx() if loss else None  # secondary axis for loss
+
+#     linestyles = [':','-','-.', '--']
+
+#     for i, resfile in enumerate(results):
+#         if path:
+#             resfile = os.path.join(path, resfile)
+#         if not resfile.endswith('.pkl'):
+#             resfile += '.pkl'
+
+#         with open(resfile, 'rb') as file:
+#             result = pickle.load(file)['results']
+
+#         col = sns_pal[i]
+#         count = 0
+
+#         for name, res in result.items():
+#             if name == 'params':
+#                 continue
+#             if labels and i < len(labels):
+#                 name = f'{labels[i]} - {name}'
+
+#             accuracy = res['accuracy']
+#             if len(accuracy) == 0:
+#                 continue
+
+#             x = range(len(accuracy))
+
+#             if 'validation' in name.lower():
+#                 ax.plot(x, accuracy, linestyle=linestyles[count], label=name, color=col, linewidth=3)
+#             else:
+#                 ax.plot(x, accuracy, linestyle=linestyles[count], label=name, color=col, alpha=0.5)
+
+#             # Maximum accuracy marker
+#             if show_max:
+#                 max_acc = np.max(accuracy)
+#                 max_idx = np.argmax(accuracy)
+#                 ax.plot(max_idx, max_acc, 'o', color=col, markersize=8)
+#                 ax.text(max_idx+0.6, max_acc+0.002, f'{max_acc*100:.1f}%', fontsize=8, 
+#                         verticalalignment='bottom', horizontalalignment='right', color=col)
+
+#             # Plot loss on secondary axis
+#             if loss and 'train' in name.lower():
+#                 losses = res['losses']
+#                 x_loss = range(len(losses))
+#                 ax_loss.scatter(x_loss, losses, marker='+', s=20, color=col, alpha=0.5)
+
+#             count += 1
+
+#     ax.set_xlabel('Epoch')
+#     ax.set_ylabel('Accuracy')
+
+#     if title:
+#         ax.set_title(title)
+#     if loss:
+#         ax_loss.set_ylabel('Loss')
+
+#     if xlims:
+#         ax.set_xlim(xlims)
+#     if ylims:
+#         ax.set_ylim(ylims)
+
+#     ax.legend()
+#     plt.show()
+#     return fig, ax
+
+# def plot_results(results, path=None, xlims=None, ylims=None, loss=False,
+#                  labels=None, show_max=False, title=None, print_results=False):
+
+#     import os, pickle
+#     import numpy as np
+#     import matplotlib.pyplot as plt
+#     import seaborn as sns
+#     from matplotlib.lines import Line2D
+#     from matplotlib import colormaps
+
+#     if type(results) != list:
+#         results = [results]
+
+#     sns_pal = sns.color_palette("hls", len(results))
+#     fig = plt.figure(figsize=(8, 8))
+#     ax = fig.add_subplot(111)
+#     ax_loss = ax.twinx() if loss else None
+
+#     linestyles = [':','-','-.', '--']
+
+#     # track used linestyles for legend
+#     used_linestyles = set()
+
+#     for i, resfile in enumerate(results):
+#         if path:
+#             resfile = os.path.join(path, resfile)
+#         if not resfile.endswith('.pkl'):
+#             resfile += '.pkl'
+
+#         with open(resfile, 'rb') as file:
+#             result = pickle.load(file)['results']
+
+#         col = sns_pal[i]
+#         count = 0
+
+#         for name, res in result.items():
+#             if name == 'params':
+#                 continue
+
+#             accuracy = res['accuracy']
+#             if len(accuracy) == 0:
+#                 continue
+
+#             x = range(len(accuracy))
+#             ls = linestyles[count % len(linestyles)]
+#             used_linestyles.add(ls)
+
+#             label = name
+#             if labels and i < len(labels):
+#                 label = f'{labels[i]} - {name}'
+
+#             if 'validation' in name.lower():
+#                 ax.plot(x, accuracy, linestyle=ls, color=col, linewidth=3)
+#             else:
+#                 ax.plot(x, accuracy, linestyle=ls, color=col, alpha=0.5)
+
+#             if show_max:
+#                 max_acc = np.max(accuracy)
+#                 max_idx = np.argmax(accuracy)
+#                 ax.plot(max_idx, max_acc, 'o', color=col, markersize=8)
+
+#             if loss and 'train' in name.lower():
+#                 losses = res['losses']
+#                 x_loss = range(len(losses))
+#                 ax_loss.scatter(x_loss, losses, marker='+', s=20,
+#                                 color=col, alpha=0.5)
+
+#             count += 1
+
+#     # ---- AXES ----
+#     ax.set_xlabel('Epoch')
+#     ax.set_ylabel('Accuracy')
+#     if loss:
+#         ax_loss.set_ylabel('Loss')
+#     if title:
+#         ax.set_title(title)
+#     if xlims:
+#         ax.set_xlim(xlims)
+#     if ylims:
+#         ax.set_ylim(ylims)
+
+#     # ---- LEGENDS ----
+
+#     # Linestyle legend (black)
+#     linestyle_map = {
+#         ':': 'Train',
+#         '-': 'Validation',
+#         '-.': 'Test',
+#         '--': 'Other'
+#     }
+
+#     linestyle_handles = [
+#         Line2D([0], [0], color='black', linestyle=ls, linewidth=2,
+#                label=linestyle_map.get(ls, ls))
+#         for ls in used_linestyles
+#     ]
+
+#     # Color legend (families)
+#     color_handles = []
+#     for i in range(len(results)):
+#         if labels is not None and i < len(labels):
+#             lab = labels[i]
+#         else:
+#             lab = f'Run {i}'
+
+#         color_handles.append(
+#             Line2D([0], [0],
+#                 color=sns_pal[i],
+#                 linewidth=3,
+#                 label=lab)
+#         )
+
+#     # # Place legends outside (right)
+#     # leg1 = ax.legend(handles=linestyle_handles, title='Curve type',
+#     #                  loc='upper left', bbox_to_anchor=(1.02, 1.0))
+#     # leg2 = ax.legend(handles=color_handles, title='Experiment',
+#     #                  loc='lower left', bbox_to_anchor=(1.02, 0.0))
+#     # First legend: line styles
+#         # Second legend: colors
+
+
+#     leg1 = ax.legend(
+#         handles=linestyle_handles,
+#         title='Curve type',
+#         loc='upper center',
+#         bbox_to_anchor=(0.5, -0.12),
+#         ncol=len(linestyle_handles),
+#         frameon=False,
+#     )
+   
+#     leg2 = ax.legend(
+#             handles=color_handles,
+#             title='Experiment',
+#             loc='upper center',
+#             bbox_to_anchor=(0.5, -0.26),
+#             ncol=min(3, len(color_handles)),
+#             frameon=False,
+#         )
+
+
+
+
+
+#     ax.add_artist(leg1)
+
+#     plt.tight_layout(rect=[0, 0, 0.82, 1])
+#     plt.show()
+
+#     if print_results:
+#         for i, resfile in enumerate(results):
+#             if path:
+#                 resfile = os.path.join(path, resfile)
+#             if not resfile.endswith('.pkl'):
+#                 resfile += '.pkl'
+
+#             with open(resfile, 'rb') as file:
+#                 result = pickle.load(file)['results']
+
+#             print(f"Results from {resfile}:")
+#             for name, res in result.items():
+#                 if name == 'params':
+#                     continue
+#                 acc = res['accuracy'][-1] if len(res['accuracy']) > 0 else None
+#                 print(f"  {name}: Final accuracy = {acc}")
+#     return fig, ax
+def plot_results(results, path=None, xlims=None, ylims=None, loss=False,
+                 labels=None, show_max=False, title=None, print_results=False):
+
+    import os, pickle
+    import numpy as np
+    import matplotlib.pyplot as plt
+    import seaborn as sns
+    from matplotlib.lines import Line2D
 
     if type(results) != list:
         results = [results]
 
-    cmaps = list(colormaps)
-    fig = plt.figure(figsize=(12, 8))
+    sns_pal = sns.color_palette("hls", len(results))
+    fig = plt.figure(figsize=(10, 8))
     ax = fig.add_subplot(111)
-    ax_loss = ax.twinx() if loss else None  # secondary axis for loss
+    ax_loss = ax.twinx() if loss else None
 
     linestyles = [':','-','-.', '--']
+    used_linestyles = set()
 
     for i, resfile in enumerate(results):
+        
         if path:
             resfile = os.path.join(path, resfile)
         if not resfile.endswith('.pkl'):
@@ -173,59 +421,108 @@ def plot_results(results, path=None, xlims=None, ylims=None, loss=False, labels=
         with open(resfile, 'rb') as file:
             result = pickle.load(file)['results']
 
-        col = c_palette[i]
+        # if print_results:
+        #     print(f"\n--- Metrics from {os.path.basename(resfile)} ---")
+        #     for name, res in result.items():
+        #         if name == 'params' or len(res['accuracy']) == 0: continue
+                
+        #         # Final Epoch Tuple (mean, sd)
+        #         f_mean, f_sd = res['accuracy'][-1]
+        #         print(f"  {name:15}: Final Acc = {f_mean:.4f} (±{f_sd:.4f})")
+            
+        #         acc_vals = [t[0] for t in res['accuracy']]
+        #         best_idx = np.argmax(acc_vals)
+        #         b_mean, b_sd = res['accuracy'][best_idx]
+        #         print(f"  {'':15}  Peak Acc  = {b_mean:.4f} (±{b_sd:.4f}) at Epoch {best_idx}")
+        if print_results:
+            print(f"\n--- Metrics from {os.path.basename(resfile)} ---")
+            for name, res in result.items():
+                if name == 'params' or len(res['accuracy']) == 0: continue
+                
+                # Final Epoch Tuple (mean, sd)
+                f_mean, f_sd = res['accuracy'][-1]
+                # Multiply mean by 100 for percentage; f_sd remains as raw spread or can be scaled too
+                print(f"  {name:15}: Final Acc = {f_mean*100:.1f}% (±{f_sd:.3f})")
+            
+                acc_vals = [t[0] for t in res['accuracy']]
+                best_idx = np.argmax(acc_vals)
+                b_mean, b_sd = res['accuracy'][best_idx]
+                print(f"  {'':15}  Peak Acc  = {b_mean*100:.1f}% (±{b_sd:.3f}) at Epoch {best_idx}")
+
+        col = sns_pal[i]
         count = 0
 
         for name, res in result.items():
-            if labels and i < len(labels):
-                name = f'{labels[i]} - {name}'
-
-            accuracy = res['accuracy']
-            if len(accuracy) == 0:
+            
+            if name == 'params' or len(res['accuracy']) == 0:
                 continue
 
-            x = range(len(accuracy))
+            # Unpack list of (mean, sd) tuples
+            acc_data = res['accuracy']
+            accuracy, acc_sd = zip(*acc_data)
+            accuracy = np.array(accuracy)
+            acc_sd = np.array(acc_sd)
 
+            x = np.arange(len(accuracy))
+            ls = linestyles[count % len(linestyles)]
+            used_linestyles.add(ls)
+
+            # ---- PLOT ACCURACY & SHADING ----
             if 'validation' in name.lower():
-                ax.plot(x, accuracy, linestyle=linestyles[count], label=name, color=col, linewidth=3)
+                ax.plot(x, accuracy, linestyle=ls, color=col, linewidth=3)
+                # Fill between Mean ± SD
+                ax.fill_between(x, accuracy - acc_sd, accuracy + acc_sd, 
+                                color=col, alpha=0.2)
             else:
-                ax.plot(x, accuracy, linestyle=linestyles[count], label=name, color=col, alpha=0.5)
+                ax.plot(x, accuracy, linestyle=ls, color=col, alpha=0.4)
 
-            # Maximum accuracy marker
             if show_max:
-                max_acc = np.max(accuracy)
                 max_idx = np.argmax(accuracy)
-                ax.plot(max_idx, max_acc, 'o', color=col, markersize=8)
-                ax.text(max_idx+0.6, max_acc+0.002, f'{max_acc*100:.1f}%', fontsize=8, 
-                        verticalalignment='bottom', horizontalalignment='right', color=col)
+                ax.plot(max_idx, accuracy[max_idx], 'o', color=col, markersize=8)
 
-            # Plot loss on secondary axis
-            if loss and 'train' in name.lower():
-                losses = res['losses']
-                x_loss = range(len(losses))
-                ax_loss.scatter(x_loss, losses, marker='+', s=20, color=col, alpha=0.5)
+            # ---- PLOT LOSS (Optional) ----
+            if loss and 'train' in name.lower() and 'losses' in res:
+                loss_data = res['losses']
+                losses, loss_sd = zip(*loss_data)
+                losses = np.array(losses)
+                loss_sd = np.array(loss_sd)
+                
+                x_loss = np.arange(len(losses))
+                ax_loss.scatter(x_loss, losses, marker='+', s=20, color=col, alpha=0.4)
+                # Error bars for individual loss points
+                ax_loss.errorbar(x_loss, losses, yerr=loss_sd, fmt='none', 
+                                 ecolor=col, alpha=0.2)
 
             count += 1
 
+    # ---- FORMATTING AXES ----
     ax.set_xlabel('Epoch')
     ax.set_ylabel('Accuracy')
+    if loss: ax_loss.set_ylabel('Loss')
+    if title: ax.set_title(title)
+    if xlims: ax.set_xlim(xlims)
+    if ylims: ax.set_ylim(ylims)
 
-    if title:
-        ax.set_title(title)
-    if loss:
-        ax_loss.set_ylabel('Loss')
+    # ---- LEGEND LOGIC ----
+    linestyle_map = {':': 'Train', '-': 'Validation', '-.': 'Test', '--': 'Other'}
+    linestyle_handles = [Line2D([0], [0], color='black', linestyle=ls, linewidth=2,
+                         label=linestyle_map.get(ls, ls)) for ls in used_linestyles]
+    
+    color_handles = [Line2D([0], [0], color=sns_pal[i], linewidth=3, 
+                     label=labels[i] if labels and i < len(labels) else f'Run {i}')
+                     for i in range(len(results))]
 
-    if xlims:
-        ax.set_xlim(xlims)
-    if ylims:
-        ax.set_ylim(ylims)
+    leg1 = ax.legend(handles=linestyle_handles, title='Curve type', loc='upper center',
+                     bbox_to_anchor=(0.5, -0.12), ncol=len(linestyle_handles), frameon=False)
+    leg2 = ax.legend(handles=color_handles, title='Experiment', loc='upper center',
+                     bbox_to_anchor=(0.5, -0.24), ncol=min(3, len(color_handles)), frameon=False)
+    ax.add_artist(leg1)
 
-    ax.legend()
+    plt.tight_layout()
     plt.show()
+
+
     return fig, ax
-
-
-
 # def pad_sequences_tf(sequences, maxlen, padding='post', value=0):
 #     """ Pad sequences using TensorFlow/Keras utility.
     
@@ -382,11 +679,16 @@ def imdb_collate(batch):
     text = [b['text'] for b in batch]
     labels = [b['Y'] for b in batch]
     k_txt = [b['K']['text'] for b in batch]
-    k_vec = [b['K']['vector'] for b in batch]
-    k_lab = [b['K']['label'] for b in batch]
+    k_x = [b['K']['X'] for b in batch]
+    k_vec = [b['K']['K'] for b in batch]
+    k_lab = [b['K']['Y'] for b in batch]
     k_mag = [b['K']['magnitude'] for b in batch]
     
-    knowledge = {'text':k_txt,'vector':jnp.stack([jnp.stack(k_v) for k_v in k_vec]),'label':k_lab,'magnitude':k_mag}
+    knowledge = {'text':k_txt,
+                 'X':jnp.stack([jnp.stack(k_v) for k_v in k_x]),
+                 'K':jnp.stack([jnp.stack(k_v) for k_v in k_vec]),
+                 'Y':k_lab,
+                 'magnitude':k_mag}
 
     return{'text':text,'X':X,'Y':labels,'K':knowledge}
 
@@ -632,15 +934,47 @@ def expand_data(dataclass):
 def visualise_classes(dataset,knowledge=True):
 
   scale = 1
+  h = 0.1
   fig = plt.figure(figsize = (5,5))
   ax = fig.add_subplot(111)
   # fig.set_size_inches(18.5, 10.5)
   X = dataset.X
   x,y = X[:,0],X[:,1]
   labels = np.unique(dataset.Y)
+  x_min, x_max = x.min() - .5, x.max() + .5
+  y_min, y_max = y.min() - .5, y.max() + .5
+  lims = [[x_min, x_max], [y_min, y_max]]
+  xx, yy = np.meshgrid(np.arange(lims[0][0], lims[0][1], h),
+                      np.arange(lims[1][0], lims[1][1], h))
+  preds = dataset.data.optimum_classifier(np.stack([xx.ravel(), yy.ravel()]).T)
+  
+#   probabilities = sigmoid(logits)
+#   Z = preds[:,1]
+  Z = preds
+  Z_r = Z.reshape(xx.shape)
+  x_max = []
+  y_max = []
+  x_p5 = []
+  y_p5 = []
+  
+  
+  for i in range(len(xx)):
+    max_idx = np.argmax(Z_r[i])
+    nearest_idx = (np.abs(Z_r[i] - 0.5)).argmin()
+    x_max.append(xx[i][max_idx])
+    y_max.append(yy[i][max_idx])
+    x_p5.append(xx[i][nearest_idx])
+    y_p5.append(yy[i][nearest_idx])
+    
+  cm = plt.cm.RdBu
+  cm_bright = ListedColormap(['#FF0000', '#0000FF'])
+  im = ax.contourf(xx, yy, Z.reshape(xx.shape), cmap=cm, alpha=.8)
+  fig.colorbar(im, ax=ax)
+  
 
   n = len(labels)
-  cm_bright = ListedColormap(['#FF0000', '#0000FF'])
+  
+  cm_bright = sns.color_palette('bright',as_cmap=True) # ListedColormap(['#FF0000', '#0000FF'])
   
   handles = []
 
@@ -658,17 +992,27 @@ def visualise_classes(dataset,knowledge=True):
       pastel_patch = mpatches.Patch(color=pastel_pal[int(c_i_n)], label=f'Class {c_i+1} | $s = 1$')      
       handles.extend((normal_patch,pastel_patch))
     
-    for i in range(np.shape(dataset.K['vector'])[0]):
-        for j in range(np.shape(dataset.K['vector'])[1]):
+    # for i in range(np.shape(dataset.K['vector'])[0]):
+    #     for j in range(np.shape(dataset.K['vector'])[1]):
     
-            u = dataset.K['vector'][i,j,0]*dataset.K['magnitude'][i,j]
-            v = dataset.K['vector'][i,j,1]*dataset.K['magnitude'][i,j]
+    for i in range(np.shape(dataset.K['K'])[0]):
+        for j in range(np.shape(dataset.K['K'])[1]):
     
-            ax.quiver(x[i],y[i],u,v,angles='xy', scale_units = 'xy',
-                                          color=pastel_pal[dataset.Y[i]],width=1/200,alpha=1.0,headlength=4,headwidth=4,scale=1)
+            # u = dataset.K['K'][i,j,0]#*dataset.K['magnitude'][i,j]
+            # v = dataset.K['vector'][i,#,1]*dataset.K['magnitude'][i,j]
+            
+            u = dataset.K['K'][i][j][0]
+            v = dataset.K['K'][i][j][1]
+            u_x = dataset.K['X'][i][j][0]
+            u_y = dataset.K['X'][i][j][1]
+    
+            # ax.quiver(x[i],y[i],u,v,angles='xy', scale_units = 'xy',
+            ax.quiver(u_x,u_y,u,v,angles='xy', scale_units = 'xy',
+                                          color=pastel_pal[dataset.Y[i]],width=1/200,alpha=1.0,headlength=4,headwidth=4) ##,scale=10)
+  
   ax.legend(handles=handles)
 
-  ax.scatter(x,y,c=dataset.Y, cmap=cm_bright, edgecolors='k')
+  ax.scatter(x,y,c=dataset.Y,  edgecolors='k') #cmap=cm_bright, edgecolors='k')
   plt.show()
 
   return fig, ax
@@ -930,64 +1274,120 @@ def generate_results_ensemble_archive(X,Y,models,params,name='Untitled'):
 #         print(f"{name} Loss: {metrics['loss']}, {name} Accuracy: {metrics['accuracy'] * 100}")
 #         return metrics
 
+# def generate_results_ensemble(X, Y, models, params, name='Untitled'):
+#     """
+#     Evaluate an ensemble of models on given data (X, Y), supporting both 
+#     single-output (binary) and multi-class classifiers.
+
+#     Args:
+#         X: input features (numpy array or list)
+#         Y: true labels (numpy array)
+#         models: list of model objects
+#         params: list of corresponding model parameters
+#         name: optional name for printing
+
+#     Returns:
+#         metrics dict from compute_metrics
+#     """
+#     num_models = len(models)
+#     num_samples = len(X)
+
+#     # Run one model to inspect shape
+#     sample_logits, _ = models[0].apply({'params': params[0]}, np.array(X), train=False)
+    
+#     # Determine if binary or multi-class
+#     if sample_logits.ndim == 1:
+#         # Reshape to (batch_size, 1) for consistency with binary classification output
+#         sample_logits = sample_logits.reshape(-1, 1)
+    
+#     if sample_logits.shape[1] == 1:
+#         # Binary / single-output
+        
+#         logits = np.zeros((num_models, num_samples))
+#         for i, (model, param) in enumerate(zip(models, params)):
+#             log_i, _ = model.apply({'params': param}, np.array(X), train=False)
+#             logits[i, :] = log_i.squeeze(-1)
+#         # Ensemble: mean over models
+        
+#         ensemble_logits = np.expand_dims(np.mean(logits, axis=0),axis=1)
+        
+#         # probs = jax.nn.sigmoid(ensemble_logits)
+#         labels = np.array(Y).astype(np.int32)
+#     else:
+#         # Multi-class
+#         num_classes = sample_logits.shape[-1]
+#         logits = np.zeros((num_models, num_samples, num_classes))
+        
+#         for i, (model, param) in enumerate(zip(models, params)):
+#             logits[i, :, :], embeddings = model.apply({'params': param}, np.array(X), train=False)
+            
+#         # Ensemble: mean over models
+#         ensemble_logits = np.mean(logits, axis=0)
+        
+#         probs = jax.nn.softmax(ensemble_logits, axis=-1)
+#         labels = np.array(Y).astype(np.int32)
+    
+    
+#     metrics = compute_metrics(ensemble_logits, labels)
+#     print(f"{name} | Loss: {metrics['loss']:.6g}, Accuracy: {metrics['accuracy'] * 100:.2f}%")
+#     return metrics
+
+import numpy as np
+import jax
+
 def generate_results_ensemble(X, Y, models, params, name='Untitled'):
     """
-    Evaluate an ensemble of models on given data (X, Y), supporting both 
-    single-output (binary) and multi-class classifiers.
-
-    Args:
-        X: input features (numpy array or list)
-        Y: true labels (numpy array)
-        models: list of model objects
-        params: list of corresponding model parameters
-        name: optional name for printing
-
-    Returns:
-        metrics dict from compute_metrics
+    Evaluate an ensemble and return metrics as (mean, std) tuples across models.
     """
     num_models = len(models)
     num_samples = len(X)
+    labels = np.array(Y).astype(np.int32)
 
-    # Run one model to inspect shape
+    # Containers for per-model metrics to calculate SD
+    model_accuracies = []
+    model_losses = []
+
+    # 1. Process Individual Models
+    # Determine dimensionality from first model
     sample_logits, _ = models[0].apply({'params': params[0]}, np.array(X), train=False)
+    is_binary = (sample_logits.ndim == 1 or sample_logits.shape[-1] == 1)
     
-    # Determine if binary or multi-class
-    if sample_logits.ndim == 1:
-        # Reshape to (batch_size, 1) for consistency with binary classification output
-        sample_logits = sample_logits.reshape(-1, 1)
-    
-    if sample_logits.shape[1] == 1:
-        # Binary / single-output
-        
-        logits = np.zeros((num_models, num_samples))
-        for i, (model, param) in enumerate(zip(models, params)):
-            log_i, _ = model.apply({'params': param}, np.array(X), train=False)
-            logits[i, :] = log_i.squeeze(-1)
-        # Ensemble: mean over models
-        
-        ensemble_logits = np.expand_dims(np.mean(logits, axis=0),axis=1)
-        
-        # probs = jax.nn.sigmoid(ensemble_logits)
-        labels = np.array(Y).astype(np.int32)
+    if is_binary:
+        all_model_logits = np.zeros((num_models, num_samples, 1))
     else:
-        # Multi-class
         num_classes = sample_logits.shape[-1]
-        logits = np.zeros((num_models, num_samples, num_classes))
-        
-        for i, (model, param) in enumerate(zip(models, params)):
-            logits[i, :, :], embeddings = model.apply({'params': param}, np.array(X), train=False)
-            
-        # Ensemble: mean over models
-        ensemble_logits = np.mean(logits, axis=0)
-        
-        probs = jax.nn.softmax(ensemble_logits, axis=-1)
-        labels = np.array(Y).astype(np.int32)
-    
-    
-    metrics = compute_metrics(ensemble_logits, labels)
-    print(f"{name} | Loss: {metrics['loss']:.6g}, Accuracy: {metrics['accuracy'] * 100:.2f}%")
-    return metrics
+        all_model_logits = np.zeros((num_models, num_samples, num_classes))
 
+    for i, (model, param) in enumerate(zip(models, params)):
+        m_logits, _ = model.apply({'params': param}, np.array(X), train=False)
+        
+        # Standardize shape to (batch, classes)
+        if is_binary and m_logits.ndim == 1:
+            m_logits = m_logits.reshape(-1, 1)
+        
+        all_model_logits[i] = m_logits
+        
+        # Compute metrics for this individual model
+        m_metrics = compute_metrics(m_logits, labels)
+        model_accuracies.append(m_metrics['accuracy'])
+        model_losses.append(m_metrics['loss'])
+
+    # 2. Compute Ensemble Metrics (Mean of logits approach)
+    ensemble_logits = np.mean(all_model_logits, axis=0)
+    ensemble_metrics = compute_metrics(ensemble_logits, labels)
+
+    # 3. Aggregate Statistics (Value, SD)
+    # We report the Ensemble's performance as the primary value, 
+    # and the SD of individual models to show inter-model variance.
+    stats = {
+        'accuracy': (ensemble_metrics['accuracy'], np.std(model_accuracies)),
+        'loss': (ensemble_metrics['loss'], np.std(model_losses))
+    }
+
+    print(f"{name} | Ensemble Accuracy: {stats['accuracy'][0]*100:.2f}% (±{stats['accuracy'][1]*100:.2f}%), "
+          f"Ensemble Loss: {stats['loss'][0]:.6g} (±{stats['loss'][1]:.6g})")
+    
+    return stats
 
 class MyTrainState(train_state.TrainState):
     batch_stats: flax.core.FrozenDict
@@ -1066,6 +1466,7 @@ def create_train_state(model, opt, vector_length=768, embedding_dim=50, key = No
     except:
         print("Float initialization failed, trying integer input initialization.")
         dummy_input = jax.random.randint(main_key, (1, vector_length),minval=0, maxval=20000)
+        
         variables = model.init(init_rngs, dummy_input)
 
     return train_state.TrainState.create(
@@ -1147,7 +1548,7 @@ def single_input_loss_wrt_x(params, model, x, y, rng):
     ).mean()
     return loss
 
-def plotEpoch(X, y, model, states,K = None, plot_type = None, name = 'untitled',project_dir = None,key = None):
+def plotEpoch(X, y, model, states,K = None, plot_type = None, name = 'untitled',project_dir = None,key = None,validation = None):
     if key == None:
         key = jax.random.PRNGKey(42)
     
@@ -1156,15 +1557,39 @@ def plotEpoch(X, y, model, states,K = None, plot_type = None, name = 'untitled',
     else:
         pathname = os.getcwd()
 
-    x_min, x_max = X[:, 0].min() - .5, X[:, 0].max() + .5
-    y_min, y_max = X[:, 1].min() - .5, X[:, 1].max() + .5
+    x_min, x_max = X[:, 0].min(), X[:, 0].max()
+    y_min, y_max = X[:, 1].min(), X[:, 1].max()
 
-    if K:
-        x_min, x_max = min(x_min,min(np.concat([k[0] for k in K['X']]))), max(x_max,max(np.concat([k[0] for k in K['X']])))
-        y_min, y_max = min(y_min,min(np.concat([k[1] for k in K['X']]))), max(y_max,max(np.concat([k[1] for k in K['X']])))
+
+
+    if K:   
+        K['X'] = np.array(K['X']).reshape(-1,np.array(K['X']).shape[-1])
+        K['Y'] = np.concat(np.array(K['Y']).reshape(-1,1))
+        K['K'] = np.array(K['K']).reshape(-1,np.array(K['K']).shape[-1])
+        
+        assert K['X'].shape[-1] == 2,"Cannot plot this non-2D vector"
+
+        # flat_K = np.squeeze(K['X'])
+        # flat_K = np.array(K['X']).reshape(-1,np.array(K['X']).shape[-1])
+        
+        x_min, x_max = min(x_min,min(K['X'][:,0])), max(x_max,max(K['X'][:,0])) #[k[0] for k in flat_K])), max(x_max,max([k[0] for k in flat_K])))
+        y_min, y_max = min(y_min,min(K['X'][:,1])), max(y_max,max(K['X'][:,1])) #y_min, y_max = min(y_min,min(np.concat([k[1] for k in flat_K]))), max(y_max,max(np.concat([k[1] for k in flat_K])))
+    
+    if validation:
+        x_min, x_max = min(x_min,min(validation.X[:,0])), max(x_max,max(validation.X[:,0])) #[k[0] for k in flat_K])), max(x_max,max([k[0] for k in flat_K])))
+        y_min, y_max = min(y_min,min(validation.X[:,1])), max(y_max,max(validation.X[:,1])) #y_min, y_max = min(y_min,min(np.concat([k[1] for k in flat_K]))), max(y_max,max(np.concat([k[1] for k in flat_K])))
+    
+
+    x_margin = 0.1*(x_max - x_min)
+    y_margin = 0.1*(y_max - y_min)
+    x_min -= x_margin
+    y_min -= y_margin
+    x_max += x_margin
+    y_max += y_margin
     lims = [[x_min, x_max], [y_min, y_max]]
-    xx, yy = np.meshgrid(np.arange(lims[0][0], lims[0][1], 0.05),
-                            np.arange(lims[1][0], lims[1][1], 0.05))
+    
+    xx, yy = np.meshgrid(np.arange(lims[0][0] - x_margin, lims[0][1]+x_margin, (x_max-x_min)/50),
+                            np.arange(lims[1][0]-y_margin, lims[1][1]+y_margin, (y_max-y_min)/50))
     points = np.stack([xx.ravel(), yy.ravel()]).T
 
     cm = plt.cm.RdBu
@@ -1173,21 +1598,15 @@ def plotEpoch(X, y, model, states,K = None, plot_type = None, name = 'untitled',
     n_classes = len(np.unique(y))
     # dynamic palettes
     normal_pal = sns.color_palette("Set1", n_classes)
-    pastel_pal = sns.color_palette("Pastel1", n_classes)
+    pastel_pal = sns.color_palette("pastel", n_classes)
     cm_bright = ListedColormap(normal_pal.as_hex())
     cm_pastel = ListedColormap(pastel_pal.as_hex())
 
-    if K:   
-        K = {
-            dict_key: jnp.concatenate(val)
-            for dict_key, val in K.items()
-        }
-
-    for epoch,state in enumerate(states):
+    print("Processing video")
+    for epoch,state in enumerate(tqdm(states)):
         
         #   model = custom_models[hyperparams['model']](*hyperparams['model_io'])
         Z,_ = model.apply({'params': state.params}, points)
-        
 # Vectorized gradient function w.r.t x
     #   grad_map = jax.vmap(
     #     jax.grad(single_input_loss_wrt_x, argnums=2),  # gradient w.r.t x
@@ -1207,55 +1626,117 @@ def plotEpoch(X, y, model, states,K = None, plot_type = None, name = 'untitled',
         magnitude = np.linalg.norm(g_y_0, axis=1)
 
         fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 5), sharey='row')
-        timer = fig.canvas.new_timer(interval = 500) #creating a timer object and setting an interval of 3000 milliseconds
+        timer = fig.canvas.new_timer(interval = 100) #creating a timer object and setting an interval of 3000 milliseconds
         timer.add_callback(close_event)
 
         im = ax1.contourf(xx, yy, magnitude.reshape(xx.shape), cmap=cm2, alpha=.8)
         fig.colorbar(im, ax=ax1)
         ax1.scatter(X[:, 0], X[:, 1], c=y, cmap=cm_bright,
                         edgecolors='k')
-
-        if K:   
-
-            ax1.scatter(K['X'][:, 0], K['X'][:, 1], color=[normal_pal[y_i] for y_i in K['Y']],
-                    edgecolors='k')
+        
+        if K:
+            
+            ax1.scatter(K['X'][:, 0], K['X'][:, 1], 
+                        # c=y,
+                        color=[normal_pal[y_i] for y_i in K['Y']],zorder=6
+                    )
+            # ax1.scatter(K['X'][:, 0], K['X'][:, 1], color=[normal_pal[y_i] for y_i in K['Y']],
+            #         edgecolors='k')
             g_y = jac_map(state.params, model, K['X'], key)
+            # print(f"g_y shape: {jnp.array(g_y).shape}")
             g_y_0 = jnp.array([g_y_i[0,:] for g_y_i in g_y])
-
-            
-            ax1.quiver(K['X'][:,0],K['X'][:,1],
-                    g_y_0[:,0],g_y_0[:,1],
-                    angles='xy', scale_units = 'xy',
-                    color=[pastel_pal[y_i] for y_i in y],
-                    width=1/200,alpha=1.0,
-                    headlength=4,headwidth=4,scale=1)
+            g_y_2 = jnp.array([g_y_i[y_i,:] for g_y_i,y_i in list(zip(g_y,K['Y']))])
+            # unit_g_y_0 = jnp.array([g_y_i / jnp.linalg.norm(g_y_i) for g_y_i in g_y_0])
+            # print(f"g_y_0 shape: {jnp.array(g_y_0).shape}")
+            # unit_g_y_0 = []
+            # ax1.quiver(K['X'][:,0],K['X'][:,1],
+            #         g_y_2[:,0],g_y_2[:,1],
+            #         angles='xy', scale_units = 'xy',
+            #         color=[pastel_pal[y_i] for y_i in y],
+            #         width=1/100,alpha=0.5,
+            #         headlength=5,headwidth=5)#,scale=25)
+            #         # width=1/200,alpha=1.0,
+                    # headlength=4,headwidth=4,scale=5)
             x_vecs = [(x_x,x_y) for x_x,x_y in list(zip(K['X'][:,0],K['X'][:,1]))]
+            g_vecs = [(g_x,g_y) for g_x,g_y in list(zip(g_y_2[:,0],g_y_2[:,1]))]
             k_vecs = [(k_x,k_y) for k_x,k_y in list(zip(K['K'][:,0],K['K'][:,1]))]
-            
+            g_unitvecs = [get_unit_vec((x_xy[0],x_xy[1]),(g_xy[0],g_xy[1]))[0] for x_xy,g_xy in list(zip(x_vecs,g_vecs))]
             k_unitvecs = [get_unit_vec((x_xy[0],x_xy[1]),(k_xy[0],k_xy[1]))[0] for x_xy,k_xy in list(zip(x_vecs,k_vecs))]
+
+            ax1.quiver(K['X'][:,0],K['X'][:,1],
+                    [g[0] for g in g_unitvecs],[g[1] for g in g_unitvecs],
+                    angles='xy', scale_units = 'xy',
+                    color=[normal_pal[y_i] for y_i in K['Y']],
+                    alpha=0.5,
+                    # width=1/100,
+                    # headlength=3,headwidth=3,headaxislength=2.5,
+                    # scale=7,
+                    zorder=5
+                    )
             
             ax1.quiver(K['X'][:,0],K['X'][:,1],
                         [k[0] for k in k_unitvecs],[k[1] for k in k_unitvecs],
                         angles='xy', scale_units = 'xy',
-                        color=[normal_pal[y_i] for y_i in y],
-                        width=1/200,alpha=1.0,
-                        headlength=4,headwidth=4,scale=5)
+                        # color=[pastel_pal[y_i] for y_i in K['Y']],
+                        color='white',
+                        #alpha=0.0,
+                        #width=1/100,
+                        edgecolors=[normal_pal[abs(y_i-1)] for y_i in K['Y']],linewidth=1.0,
+                        # headlength=3,headwidth=3,headaxislength=2.5,
+                        # scale=7,
+                        zorder=5,
+                        )
             
-            ax2.scatter(K['X'][:, 0], K['X'][:, 1],  color=[pastel_pal[y_i] for y_i in K['Y']],
-                        edgecolors='k')
+            if validation:
+                ax2.scatter(validation.X[:, 0], validation.X[:, 1],
+                            color=[normal_pal[y_i] for y_i in validation.Y],
+                            alpha=0.5,
+                            zorder=5)
+            else:
+                ax2.scatter(K['X'][:, 0], K['X'][:, 1],  color=[pastel_pal[y_i] for y_i in K['Y']],
+                        edgecolors='k',zorder=6)
        
+            # ax1.scatter(flat_K[:, 0], flat_K[:, 1], color=[normal_pal[y_i] for y_i in K['Y']],
+            #         edgecolors='k')
+            # g_y = jac_map(state.params, model, flat_K, key)
+            # g_y_0 = jnp.array([g_y_i[0,:] for g_y_i in g_y])
+
+            
+            # ax1.quiver(flat_K[:,0],flat_K[:,1],
+            #         g_y_0[:,0],g_y_0[:,1],
+            #         angles='xy', scale_units = 'xy',
+            #         color=[pastel_pal[y_i] for y_i in y],
+            #         width=1/200,alpha=1.0,
+            #         headlength=4,headwidth=4,scale=1)
+            # x_vecs = [(x_x,x_y) for x_x,x_y in list(zip(flat_K[:,0],flat_K[:,1]))]
+            # k_vecs = [(k_x,k_y) for k_x,k_y in list(zip(flat_K[:,0],flat_K[:,1]))]
+            
+            # k_unitvecs = [get_unit_vec((x_xy[0],x_xy[1]),(k_xy[0],k_xy[1]))[0] for x_xy,k_xy in list(zip(x_vecs,k_vecs))]
+            
+            # ax1.quiver(flat_K[:,0],flat_K[:,1],
+            #             [k[0] for k in k_unitvecs],[k[1] for k in k_unitvecs],
+            #             angles='xy', scale_units = 'xy',
+            #             color=[normal_pal[y_i] for y_i in y],
+            #             width=1/200,alpha=1.0,
+            #             headlength=4,headwidth=4,scale=5)
+            
+            # ax2.scatter(flat_K[:, 0], flat_K[:, 1],  color=[pastel_pal[y_i] for y_i in K['Y']],
+            #             edgecolors='k')
+        
         ax1.set_xlim(lims[0])
         ax1.set_ylim(lims[1])
+        for i in range(np.shape(Z)[1]):
         
-        im = ax2.contourf(xx, yy, Z[:,0].reshape(xx.shape), cmap=cm, alpha=.8)    
+            im = ax2.contourf(xx, yy, Z[:,i].reshape(xx.shape),levels = [-1,-0.1,0,0.1,1], cmap=cm, alpha=.8)    
         fig.colorbar(im, ax=ax2)
+
+        im_lines = ax2.contour(xx,yy,Z[:,1].reshape(xx.shape),levels=[0],colors='k')
         
         ax2.scatter(X[:, 0], X[:, 1], c=y, cmap=cm_bright,
-                        edgecolors='k')
+                        edgecolors='k',zorder=10)
         ax2.set_xlim(lims[0])
         ax2.set_ylim(lims[1])
         
-
         if plot_type == 'video':
             
             os.makedirs(pathname+"/video",exist_ok=True)
@@ -1265,7 +1746,7 @@ def plotEpoch(X, y, model, states,K = None, plot_type = None, name = 'untitled',
         else:  
             timer.start()
             plt.show()
-        
+
     if plot_type == 'video':
         
         subprocess.call([
@@ -1276,107 +1757,6 @@ def plotEpoch(X, y, model, states,K = None, plot_type = None, name = 'untitled',
             os.remove(file_name)
 
 
-def plotEpocharchive(X, y, model, states,K = None, plot_type = None, name = 'untitled',project_dir = None,key = None):
-    if key == None:
-        key = jax.random.PRNGKey(42)
-    
-    if project_dir:
-        pathname = project_dir
-    else:
-        pathname = os.getcwd()
-
-    x_min, x_max = X[:, 0].min() - .5, X[:, 0].max() + .5
-    y_min, y_max = X[:, 1].min() - .5, X[:, 1].max() + .5
-    lims = [[x_min, x_max], [y_min, y_max]]
-    xx, yy = np.meshgrid(np.arange(lims[0][0], lims[0][1], 0.01),
-                            np.arange(lims[1][0], lims[1][1], 0.01))
-    points = np.stack([xx.ravel(), yy.ravel()]).T
-
-    cm = plt.cm.RdBu
-    cm_bright = ListedColormap(['#FF0000', '#0000FF'])
-    cm2 = plt.cm.PuOr
-
-    normal_pal = sns.color_palette("Set1",(len(np.unique(y))+1)*2)
-    pastel_pal = sns.color_palette("Pastel1",(len(np.unique(y))+1)*2)
-    normal_pal.as_hex()
-    pastel_pal.as_hex()
-    
-    for epoch,state in enumerate(states):
-      
-    #   model = custom_models[hyperparams['model']](*hyperparams['model_io'])
-      Z,_ = model.apply({'params': state.params}, points)
-
-      grad_map = jax.vmap(jax.grad(predict_wrapper, argnums=2), in_axes=(None, None, 0, None), out_axes=0)
-      
-      grads = grad_map(state.params, model,  points, key)
-      magnitude = np.linalg.norm(grads, axis=1)
-
-      fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 5), sharey='row')
-      timer = fig.canvas.new_timer(interval = 500) #creating a timer object and setting an interval of 3000 milliseconds
-      timer.add_callback(close_event)
-
-      
-      
-      im = ax1.contourf(xx, yy, magnitude.reshape(xx.shape), cmap=cm2, alpha=.8)
-      fig.colorbar(im, ax=ax1)
-      ax1.scatter(X[:, 0], X[:, 1], c=y, cmap=cm_bright,
-                      edgecolors='k')
-      
-      if K:
-            
-
-            
-            grad_fn = jax.grad(predict_wrapper,argnums=2, allow_int=False)
-    
-            # Vectorize the gradient function over the batch of inputs using jax.vmap
-            batched_grad_fn = jax.vmap(grad_fn, in_axes=(None, None,0, None),out_axes=1)
-            
-            # Now call the batched gradient function on the entire input array
-            
-            g_y = batched_grad_fn(state.params,model, X, key) * -(2*jnp.array(y) - 1)[:,jnp.newaxis].T
-            
-            
-            # print("K:",K," | \n\nKPAD: ",K_pad_mask)
-            k_vector = jnp.multiply(jnp.array(K['vector']),jnp.array(K['magnitude']).reshape(-1,1,1))
-            
-            # cosine_diff = jax.vmap(lambda K_slice: map_cosine(K_slice, g_y), in_axes=1)(k_vector)
-            
-            for i,gy in enumerate(g_y.T): 
-            
-                ax1.quiver(X[i,0],X[i,1],gy[0],gy[1],angles='xy', scale_units = 'xy',
-                                          color=pastel_pal[y[i]],width=1/200,alpha=1.0,headlength=4,headwidth=4,scale=1)
-                ax1.quiver(X[i,0],X[i,1],k_vector[i,0,0],k_vector[i,0,1],angles='xy', scale_units = 'xy',
-                                          color=normal_pal[y[i]],width=1/200,alpha=1.0,headlength=4,headwidth=4,scale=1)
-      ax1.set_xlim(lims[0])
-      ax1.set_ylim(lims[1])
-
-      im = ax2.contourf(xx, yy, Z.reshape(xx.shape), cmap=cm, alpha=.8)    
-      fig.colorbar(im, ax=ax2)
-      
-      ax2.scatter(X[:, 0], X[:, 1], c=y, cmap=cm_bright,
-                      edgecolors='k')
-      ax2.set_xlim(lims[0])
-      ax2.set_ylim(lims[1])
-      
-
-      if plot_type == 'video':
-        
-        os.makedirs(pathname+"/video",exist_ok=True)
-        os.makedirs(pathname+"/video/tmp",exist_ok=True)
-        plt.savefig(pathname + "/video/tmp/file%02d.png" % epoch)  
-        plt.close()
-      else:  
-        timer.start()
-        plt.show()
-        
-    if plot_type == 'video':
-      
-      subprocess.call([
-              'ffmpeg', '-framerate', '3','-loglevel', 'quiet', '-i',pathname + "/video/tmp/file%02d.png", '-r', '30', '-pix_fmt', 'yuv420p','-y',
-              pathname + f"/video/{name}.mp4"])
-      
-      for file_name in glob.glob(pathname + "/video/tmp/*.png" ):
-          os.remove(file_name)
 
 def generate_figure(hyperparams, X, y, state):
     
@@ -1943,3 +2323,180 @@ def set_axes_limits_from_points(ax, pts, margin_ratio=0.05):
 
     ax.set_xlim(x_min - x_pad, x_max + x_pad)
     ax.set_ylim(y_min - y_pad, y_max + y_pad)
+
+
+# Choose a categorical colormap
+CMAP = plt.get_cmap("tab10")
+
+def visualise_embeddings(datasets,model_data):
+    
+    from matplotlib.widgets import Slider
+    plt.ion()  # interactive mode on
+
+    # ----------------------------------------
+    # CONFIG
+    # ----------------------------------------
+    if type(datasets)==list:
+        DATASET_NAMES = [""]*len(datasets)
+        n_classes = len(np.unique(datasets[0].Y))
+    else:
+        DATASET_NAMES = list(datasets.keys())
+        n_classes = 0
+        unique_labels = []
+        for _,val in datasets.items():
+            labels = np.unique(val.Y)
+            n_labels = len(labels)
+            if n_labels > n_classes:
+                n_classes = n_labels
+                unique_labels = list(np.unique(val.Y))
+
+        # n_classes = max([len(np.unique(val.Y)) for _, val in datasets.items()])
+
+    # ----------------------------------------
+    # Storage: dataset_name -> list of 2D arrays (one per epoch)
+    # e.g. history["train"][epoch] = (N,2) reduced embeddings
+    # ----------------------------------------
+    history = {name: [] for name in DATASET_NAMES}
+    plots = {}   # name -> (fig, ax, scatter, slider)
+
+    
+    # ----------------------------------------
+    # Create a dataset window (called once per dataset)
+    # ----------------------------------------
+
+    def create_dataset_window(name):
+        fig, ax = plt.subplots()
+        fig.canvas.manager.set_window_title(f"{name} embeddings")
+
+        # unique_labels = np.unique(Y)
+        # initial empty scatter
+        scatter = ax.scatter([], [])
+        ax.set_title(f"{name} – epoch 0")
+        # Use BoundaryNorm to map label indices to colors
+        norm = mcolors.BoundaryNorm(boundaries=np.arange(-0.5, n_classes+0.5), ncolors=n_classes)
+        sm = plt.cm.ScalarMappable(cmap=CMAP, norm=norm)
+        sm.set_array(unique_labels)
+
+        cbar = plt.colorbar(sm, ax=ax, ticks=np.arange(n_classes))
+        cbar.set_label("Labels")
+        # Optionally set tick labels to actual labels
+        cbar.set_ticklabels([str(l) for l in unique_labels])
+
+        # slider axis
+        slider_ax = fig.add_axes([0.15, 0.05, 0.7, 0.04])
+        slider = Slider(slider_ax, "Epoch", 0, 0, valinit=0, valstep=1)
+
+        # store
+        plots[name] = (fig, ax, scatter, slider)
+
+        # callback
+        def on_slider_change(val):
+            epoch = int(val)
+            update_plot_to_epoch(name, epoch)
+
+        slider.on_changed(on_slider_change)
+
+    import matplotlib.colors as mcolors
+    # ----------------------------------------
+    # Update the plot for a dataset to a given epoch
+    # ----------------------------------------
+    def update_plot_to_epoch(name, epoch):
+        fig, ax, scatter, slider = plots[name]
+
+        pts,labels = history[name][epoch]
+
+        # convert labels → colors
+        unique_labels = np.unique(labels)
+        color_map = {l: CMAP(i % 10) for i, l in enumerate(unique_labels)}
+        colors = np.array([color_map[l] for l in labels])
+        scatter.set_offsets(pts)
+        scatter.set_color(colors)
+        
+        
+
+        ax.set_title(f"{name} – epoch {epoch}")
+        # Manually set axis limits from pts (relim won't handle PathCollection)
+        set_axes_limits_from_points(ax, pts, margin_ratio=0.06)
+
+        ax.autoscale_view()
+
+        fig.canvas.draw_idle()
+        fig.canvas.flush_events()
+
+    # ----------------------------------------
+    # Called every epoch: compute embedding + store + update latest view
+    # ----------------------------------------
+    def update_dataset_epoch(name, embeddings,labels):
+        pts = reduce_dim(embeddings,method="tsne")
+        history[name].append((pts,labels))
+
+        fig, ax, scatter, slider = plots[name]
+
+        # update slider max range
+        max_epoch = len(history[name]) - 1
+        slider.valmax = max_epoch
+        slider.ax.set_xlim(0, max_epoch)
+
+        # jump the slider to the latest epoch
+        slider.set_val(max_epoch)
+
+        # update plot
+        update_plot_to_epoch(name, max_epoch)
+
+    for name in DATASET_NAMES:
+            create_dataset_window(name)
+    
+    e = 1
+    for params in model_data['results']['params']:
+        print(f"reducing dims: epoch {e}")
+        e +=1
+        for i,name in enumerate(DATASET_NAMES):
+                    # generate fake embeddings for all datasets
+                    if type(datasets) ==list:
+                        dataset = datasets[i]
+                    elif type(datasets) == dict:
+                        dataset = datasets[name]
+                    else:
+                        ValueError("Datasets should be list or dict")
+                    
+                    X = dataset.X
+                    Y = dataset.Y
+                    
+                    
+                    model = model_data['model']
+                    params = model_data['params']
+                    
+                    # Get embeddings from ensemble
+                    num_models = len(params)
+                    num_samples = len(X) #.shape[0]
+                    # Run one model to inspect shape
+                    sample_logits, _ = model.apply({'params': params[0]}, np.array(X), train=False)
+                
+                    # Multi-class
+                    num_classes = sample_logits.shape[-1]
+                    logits = np.zeros((num_models, num_samples, num_classes))
+                    ensemble_embeddings = []
+                    for i, param in enumerate(params):
+                        logits[i, :, :], embeddings = model.apply({'params': param}, np.array(X), train=False)
+                        ensemble_embeddings.append(embeddings)
+
+                    ensemble_embeddings = np.mean(np.stack(ensemble_embeddings), axis=0)
+
+                
+                    update_dataset_epoch(name, ensemble_embeddings,Y)
+    print("Dimensionality reduction complete")
+    while True:
+        for fig, ax, scatter, slider in plots.values():
+            fig.canvas.flush_events()
+        plt.pause(0.01)
+
+
+def normalize_K(val):
+    val = jnp.asarray(val)
+    if val.ndim == 3:
+        N, K, D = val.shape
+        return val[:, 0, :] if K == 1 else val.reshape(N*K, D)
+    if val.ndim == 2:
+        N, K = val.shape
+        return val[:, 0] if K == 1 else val.reshape(N*K)
+    return val

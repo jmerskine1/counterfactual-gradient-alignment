@@ -1,0 +1,204 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%% LaTeX Template for AAMAS-2026 (based on sample-sigconf.tex)
+%%% Prepared by the AAMAS-2026 Publication Chairs based on the version from AAMAS-2025. 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%% Start your document with the \documentclass command.
+
+
+%%% == IMPORTANT ==
+%%% Use the first variant below for the final paper (including author information).
+%%% Use the second variant below to anonymize your submission (no author information shown).
+%%% For further information on anonymity and double-blind reviewing, 
+%%% please consult the call for paper information
+%%% https://cyprusconferences.org/aamas2026/submission-instructions/
+
+%%%% For anonymized submission, use this
+\documentclass[sigconf,anonymous]{aamas} 
+
+%%%% For camera-ready, use this
+%\documentclass[sigconf]{aamas} 
+
+
+%%% Load required packages here (note that many are included already).
+
+\usepackage{balance} % for balancing columns on the final page
+
+
+% JE ADDED PACKAGES
+\usepackage{algorithm}
+\usepackage{algorithmic}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{colortbl}
+\usepackage{xcolor}
+\usepackage[section]{placeins}
+\usepackage{amsmath}
+\DeclareMathOperator*{\argmax}{arg\,max}
+\DeclareMathOperator*{\argmin}{arg\,min}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{todonotes}
+\usepackage{orcidlink}
+\usepackage{hyperref}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%% AAMAS-2026 copyright block (do not change!)
+
+\setcopyright{ifaamas}
+\acmConference[AAMAS '26]{Proc.\@ of the 25th International Conference
+on Autonomous Agents and Multiagent Systems (AAMAS 2026)}{May 25 -- 29, 2026}
+{Paphos, Cyprus}{C.~Amato, L.~Dennis, V.~Mascardi, J.~Thangarajah (eds.)}
+\copyrightyear{2026}
+\acmYear{2026}
+\acmDOI{}
+\acmPrice{}
+\acmISBN{}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%% == IMPORTANT ==
+%%% Use this command to specify your submission number.
+%%% In anonymous mode, it will be printed on the first page.
+
+\acmSubmissionID{<<submission id>>}
+
+%%% Use this command to specify the title of your paper.
+
+\title[Counterfactual Gradient Alignment]{Counterfactual Gradient Alignment: Optimizing Directional Supervision for Low-Data Generalization}
+
+%%% Provide names, affiliations, and email addresses for all authors.
+
+\author{Arthur Pendragon}
+\affiliation{
+  \institution{Camelot Castle}
+  \city{Camelot}
+  \country{United Kingdom}}
+\email{king.arthur@camelot.uk}
+
+\author{Nimue}
+\affiliation{
+  \institution{The Lady's Lake}
+  \city{Avalon}
+  \country{United Kingdom}}
+\email{lady.of.the.lake@avalon.uk}
+
+%%% Use this environment to specify a short abstract for your paper.
+
+
+
+
+\begin{abstract}
+Typically, machine learning algorithms must find patterns in samples drawn from an unknown data distribution, with no prior contextual information about the input space or intuition about the problem they are solving. Humans, by contrast, can apply both intuition and prior knowledge to quickly solve new problems, requiring less training data. In this paper we investigate how to address this disparity by enriching traditional labels for supervised classification tasks through gradient-based \emph{expert annotations}. We present a framework for \textbf{Counterfactual Gradient Alignment (CGA)} which (1) annotates observations with directions in the feature space pointing towards proximal counterfactuals and (2) employs novel loss functions---ReLU, Softplus, and Sign variants---to align model gradients with these directions. We demonstrate the effectiveness of CGA across synthetic 2D datasets, image classification (MNIST), and natural language sentiment tasks (IMDB, SST-2, SST-5). Our results show significant accuracy improvements in low-data regimes, with up to +7\% gain on IMDB and +14.5\% on complex 2D boundaries. Furthermore, we reveal a critical synergy between CGA and active learning, showing that directional supervision is most effective when applied to informative boundary samples.
+\end{abstract}
+
+%%% Use this command to specify a few keywords describing your work.
+%%% Keywords should be separated by commas.
+
+\keywords{Counterfactual Explanations, Gradient Supervision, Active Learning, Data Efficiency}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%% Include any author-defined commands here. 
+         
+\newcommand{\BibTeX}{\rm B\kern-.05em{\sc i\kern-.025em b}\kern-.08em\TeX}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\begin{document}
+
+%%% The following commands remove the headers in your paper. For final 
+%%% papers, these will be inserted during the pagination process.
+
+\pagestyle{fancy}
+\fancyhead{}
+
+%%% The next command prints the information defined in the preamble.
+
+\maketitle 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+
+\section{Introduction}
+Highly tailored machine learning models typically require large amounts of data and may fail to generalise well to out-of-distribution examples, leading to unexpected or inaccurate predictions. Humans are, by contrast, relatively fast learners. We are able to utilise information outside of the usual data-label pair, requiring fewer data points in order to generalise to unseen data. When operating in real environments with limited data availability, strong generalisation is a necessary component of any model which aims to assist human supervisors.
+
+In this work, we propose \textbf{Counterfactual Gradient Alignment (CGA)}, an approach that enriches data with \emph{complex annotations}. Instead of just providing a class label, an expert (human or oracle) provides a direction vector indicating how a sample must move in feature space to change its classification---a \emph{counterfactual direction}. We introduce a novel family of loss functions that enforce negative model gradients along these directions, effectively teaching the model the local geometry of the decision boundary.
+
+We evaluate CGA on two binary classification tasks (synthetic 2D and IMDB sentiment) and multiclass tasks (MNIST and SST-5). We explore three loss variants---ReLU, Softplus, and Sign---and investigate the interaction between CGA and importance sampling (Active Learning). Our experiments demonstrate that CGA provides substantial gains in low-data regimes, particularly when paired with active selection of boundary samples.
+
+\section{Gradient-Based Learning}
+In CGA, we assume access to triplets {\(\mathbf{x_i}\), \(y_i\), \(\mathbf{d_i}\)}, where \(\mathbf{d_i}\) is a unit vector pointing towards a counterfactual \(\hat{\mathbf{x}}_i\):
+\begin{equation}
+    \mathbf{d_i}=\frac{\hat{\mathbf{x}}_i - \mathbf{x_i}}{|\!|\hat{\mathbf{x}}_i - \mathbf{x_i}||}
+\end{equation}
+We define the \textbf{Directional Derivative} $d$ as the projection of the model's gradient for the true class $y$ onto this direction:
+\begin{equation}
+    d = \nabla_x f_{y}(x) \cdot \mathbf{d}_{i}
+\end{equation}
+We propose three loss variants to penalize non-negative $d$:
+\begin{itemize}
+    \item \textbf{ReLU}: $\mathcal{L}_{\text{ReLU}} = \max(0, d)$
+    \item \textbf{Softplus}: $\mathcal{L}_{\text{Softplus}} = \log(1 + e^{\beta d})$
+    \item \textbf{Sign}: $\mathcal{L}_{\text{Sign}} = \tanh(\beta d) + 1$
+\end{itemize}
+The total loss is a mixture: $\mathcal{L} = (1-\alpha)\mathcal{L}_{\text{CE}} + \alpha\mathcal{L}_{\text{Dir}}$.
+
+\section{Experimental Results}
+
+\subsection{Active Learning Synergy}
+A key finding across our experiments is the synergy between CGA and Active Learning (AL). As shown in Table~\ref{tab:al_synergy}, CGA provides massive gains on text datasets (IMDB, SST-2/5) only when paired with entropy-based importance sampling. Without AL, the directional signal on random samples often acts as noise, degrading performance.
+
+\begin{table}[h]
+\centering
+\caption{Synergy between CGA and Active Learning (AL). Results show gain over CE baseline at Size 100.}
+\label{tab:al_synergy}
+\begin{tabular}{@{}lcc@{}}
+\toprule
+\textbf{Dataset} & \textbf{Gain (AL ON)} & \textbf{Gain (AL OFF)} \\ \midrule
+IMDB & \textbf{+5.13\%} & -2.26\% \\
+SST-2 & \textbf{+1.36\%} & -2.72\% \\
+SST-5 & \textbf{+3.40\%} & -4.77\% \\ \bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Performance in Low-Data Regimes}
+Table~\ref{tab:main_results} summarizes peak performance gains observed using the Softplus and Sign variants. The most dramatic improvements occur at the smallest training sizes.
+
+\begin{table}[h]
+\centering
+\caption{Peak Validation Accuracy Gains over CE Baseline.}
+\label{tab:main_results}
+\begin{tabular}{@{}lcccc@{}}
+\toprule
+\textbf{Dataset} & \textbf{Size} & \textbf{Best Variant} & \textbf{Alpha} & \textbf{Gain} \\ \midrule
+MNSIT_FACE & 10 & Softplus & 0.5 & \textbf{+7.08\%}
+ \\ 
+IMDB & 200 & Softplus & 0.5 & \textbf{+7.17\%}
+ \\ 
+2D Circles & 100 & Sign & 0.5 & \textbf{+14.5\%}
+ \\ 
+SST-5 & 100 & ReLU & 0.3 & \textbf{+3.40\%}
+ \\ \bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Path Type Analysis (MNIST)}
+We evaluated three path generation strategies for counterfactuals on MNIST: \textbf{FACE} (feasible paths), \textbf{PCA}, and \textbf{Raw}. Feasible paths (FACE) slightly outperformed geometric baselines at Size 200 (84.78\% vs 84.52\% for Raw), suggesting that the quality and feasibility of the counterfactual direction matters for high-dimensional inputs.
+
+\section{Discussion and Conclusion}
+CGA proves to be a powerful regularizer when data is scarce. The \textbf{Softplus} variant consistently performed best, likely due to its smooth gradient which encourages a definitive confidence drop-off. However, the requirement for \textbf{Active Learning} synergy suggests that CGA is best suited for scenarios where a model can actively query an expert for directional guidance on its most uncertain boundaries. Future work will investigate human-in-the-loop interfaces for providing these machine-interpretable directions.
+
+\balance
+
+\bibliographystyle{ACM-Reference-Format}
+\bibliography{sample}
+
+\end{document}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

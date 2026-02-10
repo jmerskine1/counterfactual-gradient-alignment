@@ -7,7 +7,7 @@ data_params:
   train_size: 20
   validation_size: 100
   control: False
-  active_sampling: False
+  active_sampling: True
   init_samplesize: 200
   sample_size: 20
   diversity: 0.8

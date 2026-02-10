@@ -34,7 +34,7 @@ data_params:
   knowledge_func: counterfactual
   max_delta: 1.0
   n_vec: 2
-  train_size: 20
+  train_size: 
   validation_size: 100
   control: False
   active_sampling: False
@@ -44,10 +44,10 @@ data_params:
 hyperparams:
   batch_size: 8
   embedding_size: 32
-  epochs: 5
+  epochs: 50
   learning_rate: 0.001 #0.0001
-  loss_function: multiclass_split_loss_embedding_sign
-  loss_mix: 0.7
+  loss_function: multiclass_cross_entropy #multiclass_split_loss_embedding_sign
+  loss_mix: 0.3
   model:  multiclass_bag_of_words #mnist_conv_gemini # mnist_vit #
   model_io: !!python/tuple
   - 8

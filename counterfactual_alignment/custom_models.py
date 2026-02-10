@@ -90,6 +90,30 @@ class SimpleClassifier_v2(nn.Module):
         
   
         return x, None
+    
+
+class SimpleClassifier_v3(nn.Module):
+    num_hidden : int   # Number of hidden neurons
+    num_outputs : int  # Number of output neurons
+
+    def setup(self):
+        # Create the modules we need to build the network
+        # nn.Dense is a linear layer
+        self.linear1 = nn.Dense(features=self.num_hidden,kernel_init=glorot_normal())
+        self.linear1_1 = nn.Dense(features=int(self.num_hidden/2),kernel_init=glorot_normal())
+        self.linear2 = nn.Dense(features=self.num_outputs,kernel_init=glorot_normal()) 
+        self.dropout = nn.Dropout(rate=0.1)
+
+    def __call__(self, x,train=False):
+        x = self.linear1(x)      
+        x = nn.relu(x)
+        x = self.linear1_1(x)      
+        x = nn.relu(x)
+        # x = self.dropout(x, deterministic= not train)
+        x = self.linear2(x)
+        
+  
+        return x, None
 
 
 
@@ -798,7 +822,7 @@ class OptimizedMNISTConv(nn.Module):
         # 4. The Embedding Layer
         # We use a 'Leaky ReLU' here. This ensures that even for counterfactual 
         # directions that move 'away' from the data, the gradient doesn't die.
-        embedding = nn.Dense(self.hidden_dim, name='fc_embed')(x)
+        embedding = nn.Dense(self.hidden_dim, name='embed')(x)
         x = nn.leaky_relu(embedding, negative_slope=0.01)
         
         # 5. Final Classification
@@ -1565,6 +1589,7 @@ class MNIST_v1(nn.Module):
 
 custom_models = {'simple':SimpleClassifier,
                  'simple_v2':SimpleClassifier_v2,
+                 'simple_v3':SimpleClassifier_v3,
                  'multiclass':MultiClassClassifier, 
                  'bag_of_words':BagOfWordsClassifierSimple,
                  'mnist':MNISTClassifier,

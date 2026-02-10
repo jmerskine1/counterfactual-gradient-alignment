@@ -10,7 +10,7 @@ hyperparams:
   batch_size: 32
   epochs: 10
   learning_rate: 0.01
-  loss_function: multiclass_combined_loss_sign
+  loss_function: multiclass_combined_gs
   loss_mix: 0.5
   model: multiclass
   model_io: !!python/tuple

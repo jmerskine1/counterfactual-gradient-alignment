@@ -68,6 +68,9 @@ print(f"Loading dataset: \n{data_name} from \n{data_folder}\n")
 with open(os.path.join(data_folder,data_name)+'.pkl', 'rb') as file:
     datasets = pickle.load(file)
 
+for key,val in datasets['train']['original'].items():
+    print(key,np.shape(val),type(val))
+
 n_classes = datasets['n_classes']
 
 output_path = project_dir + "/model_outputs/" + data_name + "/"
@@ -216,6 +219,7 @@ if False:
     print(f"Train dataset reduced to {len(training_set)} samples.")
 
 if active_sampling:
+    
     print(f"Active sampling enabled. Initialising with subset of data. Original train size: {full_training_set.X.shape[0]}")
     init_samplesize = config['data_params']['init_samplesize']
     # Set deterministic random seed
