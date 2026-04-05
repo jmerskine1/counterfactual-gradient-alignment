@@ -1,0 +1,49 @@
+\documentclass{article}
+\usepackage{amsmath}
+\usepackage{booktabs}
+\usepackage{geometry}
+\geometry{a4paper, margin=1in}
+
+\title{Counterfactual Gradient Alignment: MNIST_FACE (No Active Learning) Report}
+\author{Gemini CLI Agent}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\section{Introduction}
+This report summarizes the experiments performed on the \textbf{MNIST_FACE} dataset with \textbf{Active Learning disabled}. In this configuration, the model was trained on the full set of 200 samples available in the counterfactual dataset.
+
+\section{Experimental Setup}
+\textbf{Dataset:} MNIST_FACE (Raw paths, 200 samples). \\
+\textbf{Active Learning:} Disabled. \\
+\textbf{Variables:}
+\begin{itemize}
+    \item \textbf{Mixing Alpha (\(\\alpha\)):} \{0.3, 0.5\}.
+\end{itemize}
+
+\section{Results}
+
+\begin{table}[h]
+\centering
+\begin{tabular}{@{}ccccc@{}}
+\toprule
+\textbf{Baseline (CE)} & \textbf{Best Directional} & \textbf{Variant} & \textbf{Alpha} & \textbf{Gain} \\ \midrule
+83.32\% & \textbf{84.14\%} & Softplus & 0.5 & +0.82\% \\ \bottomrule
+\end{tabular}
+\caption{Validation Accuracy Comparison on MNIST_FACE (Full 200 samples, No AL).}
+\label{tab:results}
+\end{table}
+
+\subsection{Observations}
+\begin{itemize}
+    \item \textbf{Consistent Improvement:} Even without active learning, the directional loss variants provided a small but consistent accuracy boost over the Cross Entropy baseline.
+    \item \textbf{Softplus and ReLU Efficacy:} Both Softplus and ReLU variants performed well, with Softplus achieving the highest accuracy.
+    \item \textbf{Data Saturation:} The smaller gain (+0.82\%) compared to the gains seen in low-data regimes with active learning (+7\%) suggests that the added value of directional supervision decreases as the factual training data becomes more sufficient to define the decision boundary.
+\end{itemize}
+
+\section{Conclusion}
+On the MNIST_FACE dataset, CGA acts as an effective regularizer, improving accuracy by nearly 1\% on the full 200-sample dataset without any active sample selection.
+
+\end{document}

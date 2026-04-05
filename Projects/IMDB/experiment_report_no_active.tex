@@ -1,0 +1,53 @@
+\documentclass{article}
+\usepackage{amsmath}
+\usepackage{booktabs}
+\usepackage{geometry}
+\geometry{a4paper, margin=1in}
+
+\title{Counterfactual Gradient Alignment: IMDB (No Active Learning) Report}
+\author{Gemini CLI Agent}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\section{Introduction}
+This report summarizes the experiments performed on the \textbf{IMDB} dataset with \textbf{Active Learning disabled}.
+
+\section{Experimental Setup}
+\textbf{Dataset:} IMDB (Binary Sentiment). \\
+\textbf{Active Learning:} Disabled. \\
+\textbf{Variables:}
+\begin{itemize}
+    \item \textbf{Train Set Size:} \{10, 100, 200\} samples (randomly selected).
+    \item \textbf{Mixing Alpha (\(\alpha\)):} Fixed at 0.5.
+\end{itemize}
+
+\section{Results}
+
+\begin{table}[h]
+\centering
+\begin{tabular}{@{}cccccc@{}}
+\toprule
+\textbf{Train Size} & \textbf{Baseline (CE)} & \textbf{Best Directional} & \textbf{Variant} & \textbf{Alpha} & \textbf{Gain} \\
+\midrule
+10 & 78.89\% & 75.61\% & ReLU & 0.5 & -3.28\% \\
+100 & 78.28\% & 76.02\% & ReLU & 0.5 & -2.26\% \\
+200 & 77.25\% & 75.20\% & ReLU & 0.5 & -2.05\% \\
+\bottomrule
+\end{tabular}
+\caption{Validation Accuracy Comparison on IMDB (No Active Learning).}
+\label{tab:results}
+\end{table}
+
+\subsection{Observations}
+\begin{itemize}
+    \item \textbf{Baseline Dominance:} The Cross Entropy baseline was very strong on random subsets, outperforming CGA across all sizes.
+    \item \textbf{Active Learning Dependency:} The contrast with the Active Learning results (where Softplus provided a +7\% gain) highlights that CGA is most beneficial when paired with informative sample selection strategies.
+\end{itemize}
+
+\section{Conclusion}
+On IMDB, CGA does not provide a benefit on randomly selected datasets. The interaction between directional alignment and the representativeness of training samples appears to be a key factor in its success.
+
+\end{document}

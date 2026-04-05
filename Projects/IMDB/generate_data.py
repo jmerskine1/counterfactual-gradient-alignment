@@ -20,7 +20,7 @@ import re
 from sklearn.feature_extraction.text import TfidfVectorizer,CountVectorizer
 import scipy
 
-max_length = 16
+max_length = 32
 
 """
 Data Preprocessing Functions

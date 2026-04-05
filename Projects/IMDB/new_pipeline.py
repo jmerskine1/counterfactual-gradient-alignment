@@ -14,10 +14,11 @@ from tqdm.auto import tqdm
 #ML Libraries
 import jax
 import optax
-
+import torch
 import os
 from functools import partial
 import argparse
+from pympler import asizeof
 
 import torch.utils.data as data
 
@@ -30,12 +31,14 @@ from counterfactual_alignment.knowledge_functions import knowledge_functions
 from counterfactual_alignment.utilities import (visualise_classes, imdb_collate, select_informative_samples,
                         reduce_dataset, compute_metrics, generate_results, generate_results_ensemble, create_train_state, 
                         boundary_filter, save_stats, train_one_epoch, combine_datasets,reinit_layer)
-
+from counterfactual_alignment import utilities as utils
 # Get the directory where THIS script is located
 project_dir = os.path.dirname(os.path.abspath(__file__))
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--config", "-oc", default='config.yaml', help="Config file name")
+parser.add_argument("--note", "-N", default="", help="add note to output name")
+parser.add_argument("--loss", "-L", default=None, help="Loss function to use (overrides config file)")
 args = parser.parse_args()
 
 config_path = os.path.join(project_dir,args.config)
@@ -69,12 +72,9 @@ os.makedirs(output_path, exist_ok=True)
 """
 Initialise Parameters
 """
-
-
 n_models = config['hyperparams']['n_models']
 n_epochs = config['hyperparams']['epochs']
 overwrite = True
-
 
 rng = jax.random.PRNGKey(42)
 rng, inp_rng, init_rng, dropout_rng, embedding_rng = jax.random.split(rng, 5)
@@ -133,10 +133,17 @@ adadelta = optax.adadelta(
     rho=0.95,              # decay rate
     eps=1e-6
 )
+
+adabelief = optax.adabelief(
+    learning_rate=learning_rate,
+    b1=0.9,
+    b2=0.999,
+    eps=1e-16,
+)
 scheduled_adadelta = optax.adadelta(learning_rate=learning_rate_schedule, weight_decay=0.05)
 
-optimiser = adamw
-
+# optimiser = adamw
+optimiser = adabelief
 # optimiser = adadelta
 # optimiser = adam_opt
 # optimiser = sgd_opt
@@ -152,14 +159,20 @@ ensemble = {
             # 'models': [SentimentModel(20000,50)]*n_models,
             'models':[
                 custom_models[config['hyperparams']['model']](
-                    config['hyperparams']['vocabulary_size'],config['hyperparams']['embedding_size'])
+                    num_classes = 2,
+                    embedding_size = config['hyperparams']['embedding_size']) 
+                    #config['hyperparams']['vocabulary_size']
                     ]*n_models,
             'rngs':jax.random.split(rng,n_models),
             'init_rngs':jax.random.split(init_rng,n_models),
             'train_states':[],
             'outputs':{
+               'model': custom_models[config['hyperparams']['model']](
+                    num_classes=n_classes,
+                    embedding_size=embedding_size),
               'params':[None]*n_models,
               'results':{
+                'params':[],  
                 'Train':{'losses':[],'accuracy':[]},
                 'Validation':{'losses':[],'accuracy':[]}, 
                 'Test Original':{'losses':[],'accuracy':[]},
@@ -175,48 +188,112 @@ model_name = type(ensemble['models'][0]).__name__
 """
 Load embeddings and convert into pipeline datasets
 """
+include_cfs = False
 
 control = False
 
 if control:
     full_training_set = customDataset(datasets['control']['original'])
-else: 
+elif include_cfs: 
     # full_training_set = customDataset(datasets['train']['original'])
     full_training_set = customDataset(combine_datasets(datasets['train']['original'],datasets['train']['modified']))
+else:
+    # full_training_set = customDataset(
+    #                         reduce_dataset(
+    #                         datasets['train']['original'],
+    #                         config['data_params']['train_size']/len(datasets['train']['original']['Y'])))
+    full_training_set = customDataset(datasets['train']['original'])
     # full_training_set = customDataset(reduce_dataset(datasets['train']['original'],0.1))
     # Filter out any case where counterfactual is the same as the original
-if False:
+
+if True:
     filter_indices = []
     for i in range(len(full_training_set)):
-        if np.all(training_set.K['vector'][i]) == 0:
+        
+        # if np.all(full_training_set.K['K'][i]) == 0:
+        if (full_training_set.K['K'][i][0] == full_training_set.X[i]).all():
+            filter_indices.append(i)
+        if np.all(full_training_set.K['K'][i]) == 0:
             filter_indices.append(i)
 
     filter_indices = sorted(filter_indices, reverse=True)
 
     for i in filter_indices:
-        training_set.drop(i)
+        full_training_set.drop(i)
     
-    print(f"Train dataset reduced to {len(training_set)} samples.")
+    print(f"Train dataset reduced to {len(full_training_set)} samples.")
+
 
 n_vectors = len(full_training_set.X[0])
-train_size = len(full_training_set.Y)
+# train_size = len(full_training_set.Y)
+train_size = config['data_params']['train_size']
 
 
 
+nprng = np.random.default_rng(123)
 if active_sampling:
-    init_samplesize = 600
-    nprng = np.random.default_rng(123)
-    subsample_indices = nprng.choice(train_size,init_samplesize,replace=False)
-    unsampled = set(np.arange(0,train_size)) - set(subsample_indices)
+    init_samplesize = config['data_params'].get('init_samplesize', 600)
+    subsample_indices = nprng.choice(len(full_training_set),init_samplesize,replace=False)
+    unsampled = set(np.arange(0,len(full_training_set))) - set(subsample_indices)
     training_set = full_training_set.subset(subsample_indices)
 else:
-    training_set = full_training_set
+    subsample_indices = nprng.choice(len(full_training_set),train_size,replace=False)
+    training_set = full_training_set.subset(subsample_indices)
+
+
 
 print(f"Training on {len(training_set)} samples.")
+if False:
+    # new_training_set = []
 
+    # for item in training_set:
+    #     if np.random.rand() <= 0.5:
+    #         new_training_set.append(item)
+    #     else:
+    #         item = item.copy()
+    #         for key,_ in item['K'].items():
+    #             item['K'][key] = np.empty_like(item['K'][key])
+            
+    #         new_training_set.append(item)
 
-train_original_data_loader = data.DataLoader(training_set, batch_size=batch_size, shuffle=True, collate_fn=imdb_collate, drop_last=False)
+    
 
+    for item in training_set:
+        if np.random.rand() <= 0.5:
+                for key,_ in item['K'].items():
+                    item['K'][key] = np.empty_like(item['K'][key])
+   
+# seed = 42
+
+# def seed_worker(worker_id):
+#     worker_seed = seed + worker_id
+#     np.random.seed(worker_seed)
+#     random.seed(worker_seed)
+
+# generator = torch.Generator()
+# generator.manual_seed(seed)
+
+# train_original_data_loader = data.DataLoader(training_set, batch_size=batch_size, shuffle=True, collate_fn=imdb_collate, drop_last=False,)
+
+seed = 42
+
+def seed_worker(worker_id):
+    worker_seed = seed + worker_id
+    np.random.seed(worker_seed)
+    random.seed(worker_seed)
+
+generator = torch.Generator()
+generator.manual_seed(seed)
+
+train_original_data_loader = torch.utils.data.DataLoader(
+    training_set,
+    batch_size=batch_size,
+    shuffle=True,
+    collate_fn=imdb_collate,
+    drop_last=True,
+    worker_init_fn=seed_worker,
+    generator=generator
+)
 
 validation = customDataset(datasets['dev']['original'])
 validation_data_loader = data.DataLoader(validation, batch_size=batch_size, shuffle=True, collate_fn=imdb_collate, drop_last=True)
@@ -232,15 +309,15 @@ output_name = (f"MODEL_ENSEMBLE_{n_models}_{model_name}__"
                f"emb{config['hyperparams']['embedding_size']}_"
                f"OPTIM_{optim_name}__LR_{learning_rate}__BATCHSIZE_{batch_size}__"
                f"trainsize_{train_size}__active_{active_sampling}_smplsize_{sample_size}_div{config['data_params']['diversity']}_"
-               f"LOSS_{config['hyperparams']['loss_function']}_mix_{config['hyperparams']['loss_mix']}")
+               f"LOSS_{config['hyperparams']['loss_function']}_mix_{config['hyperparams']['loss_mix']}"+args.note)
 
 print("Loading and saving to : ", output_name)
 
 for i in range(n_models):
-    trained_state, model = create_train_state(ensemble['models'][i],optimiser,vector_length=n_vectors, key=ensemble['init_rngs'][i])
+    trained_state = create_train_state(ensemble['models'][i],optimiser,vector_length=n_vectors, key=ensemble['init_rngs'][i])
     # trained_state, model = create_train_state(ensemble['models'][i],ensemble['init_rngs'][i],optimiser,batch_size=batch_size,vector_length=n_vectors)
     ensemble['train_states'].append(trained_state)
-    ensemble['models'][i] = model
+    # ensemble['models'][i] = ensemble['models'][i]
     ensemble['outputs']['params'][i] = trained_state.params
 
 
@@ -263,15 +340,119 @@ if not overwrite:
         pass
 
 
+if config['visualisation']['visualise_embeddings']:
+    from matplotlib.widgets import Slider
+    plt.ion()  # interactive mode on
+
+    # ----------------------------------------
+    # CONFIG
+    # ----------------------------------------
+    DATASET_NAMES = ["train", "test"]
+
+    # ----------------------------------------
+    # Storage: dataset_name -> list of 2D arrays (one per epoch)
+    # e.g. history["train"][epoch] = (N,2) reduced embeddings
+    # ----------------------------------------
+    history = {name: [] for name in DATASET_NAMES}
+    plots = {}   # name -> (fig, ax, scatter, slider)
+
+    
+    # ----------------------------------------
+    # Create a dataset window (called once per dataset)
+    # ----------------------------------------
+    def create_dataset_window(name):
+        fig, ax = plt.subplots()
+        fig.canvas.manager.set_window_title(f"{name} embeddings")
+
+        unique_labels = np.unique(validation.Y)
+        # initial empty scatter
+        scatter = ax.scatter([], [])
+        ax.set_title(f"{name} – epoch 0")
+        # Use BoundaryNorm to map label indices to colors
+        norm = mcolors.BoundaryNorm(boundaries=np.arange(-0.5, n_classes+0.5), ncolors=n_classes)
+        sm = plt.cm.ScalarMappable(cmap=CMAP, norm=norm)
+        sm.set_array(unique_labels)
+
+        cbar = plt.colorbar(sm, ax=ax, ticks=np.arange(n_classes))
+        cbar.set_label("Labels")
+        # Optionally set tick labels to actual labels
+        cbar.set_ticklabels([str(l) for l in unique_labels])
+
+        # slider axis
+        slider_ax = fig.add_axes([0.15, 0.05, 0.7, 0.04])
+        slider = Slider(slider_ax, "Epoch", 0, 0, valinit=0, valstep=1)
+
+        # store
+        plots[name] = (fig, ax, scatter, slider)
+
+        # callback
+        def on_slider_change(val):
+            epoch = int(val)
+            update_plot_to_epoch(name, epoch)
+
+        slider.on_changed(on_slider_change)
+
+    import matplotlib.colors as mcolors
+    # ----------------------------------------
+    # Update the plot for a dataset to a given epoch
+    # ----------------------------------------
+    def update_plot_to_epoch(name, epoch):
+        fig, ax, scatter, slider = plots[name]
+
+        pts,labels = history[name][epoch]
+
+        # convert labels → colors
+        unique_labels = np.unique(labels)
+        color_map = {l: CMAP(i % 10) for i, l in enumerate(unique_labels)}
+        colors = np.array([color_map[l] for l in labels])
+        scatter.set_offsets(pts)
+        scatter.set_color(colors)
+        
+        
+
+        ax.set_title(f"{name} – epoch {epoch}")
+        # Manually set axis limits from pts (relim won't handle PathCollection)
+        utils.set_axes_limits_from_points(ax, pts, margin_ratio=0.06)
+
+        ax.autoscale_view()
+
+        fig.canvas.draw_idle()
+        fig.canvas.flush_events()
+
+    # ----------------------------------------
+    # Called every epoch: compute embedding + store + update latest view
+    # ----------------------------------------
+    def update_dataset_epoch(name, embeddings,labels):
+        pts = utils.reduce_dim(embeddings,method="tsne")
+        history[name].append((pts,labels))
+
+        fig, ax, scatter, slider = plots[name]
+
+        # update slider max range
+        max_epoch = len(history[name]) - 1
+        slider.valmax = max_epoch
+        slider.ax.set_xlim(0, max_epoch)
+
+        # jump the slider to the latest epoch
+        slider.set_val(max_epoch)
+
+        # update plot
+        update_plot_to_epoch(name, max_epoch)
+
+    for name in DATASET_NAMES:
+            create_dataset_window(name)
+
+
 last_val_acc = 0
 for epoch in tqdm(range(n_epochs)):
         
-            
+    batch_params = []
     for m in range(n_models):
         
         model = ensemble['models'][m]
         trained_state = ensemble['train_states'][m]
         rng = ensemble['rngs'][m]
+        batch_params.append(trained_state.params)
         
         for batch in train_original_data_loader:
             
@@ -296,7 +477,12 @@ for epoch in tqdm(range(n_epochs)):
     val_metrics = generate_results_ensemble(validation.X,validation.Y,models,ensemble_params,name="Validation")
     test_o_metrics = generate_results_ensemble(test_original.X,test_original.Y,models,ensemble_params,name="Test Original")
     test_m_metrics = generate_results_ensemble(test_modified.X,test_modified.Y,models,ensemble_params,name="Test Modified")
-
+    
+    # print("ensemble['outputs']['results']['params']",asizeof.asizeof(ensemble['outputs']['results']['params']))
+    # print("ensemble['outputs']",asizeof.asizeof(ensemble['outputs']))
+    
+    if False: # Set to true to save all params (large files)
+        ensemble['outputs']['results']['params'].append(batch_params)
 
     ensemble['outputs']['results']['Train']['losses'].append(train_metrics['loss'])
     ensemble['outputs']['results']['Train']['accuracy'].append(train_metrics['accuracy'])
@@ -311,14 +497,64 @@ for epoch in tqdm(range(n_epochs)):
     #     break
     # else:
     #     last_val_acc = val_metrics['accuracy']
+
+
+    if config['visualisation']['visualise_embeddings']:
+        for name in DATASET_NAMES:
+            # generate fake embeddings for all datasets
+        
+            
+            X = None
+            Y = None
+            if name == 'train':
+                X = np.array(training_set.X)
+                Y = training_set.Y
+            elif name == 'val':
+                X = np.array(validation.X)
+                Y = validation.Y
+            elif name == 'test':
+                X = np.array(test_original.X)
+                Y = test_original.Y
+            
+            models = ensemble['models']
+            params = ensemble['outputs']['params']
+            
+            # Get embeddings from ensemble
+            num_models = len(models)
+            num_samples = X.shape[0]
+            # Run one model to inspect shape
+            sample_logits, _ = models[0].apply({'params': params[0]}, np.array(X), train=False)
+        
+            # Multi-class
+            num_classes = sample_logits.shape[-1]
+            logits = np.zeros((num_models, num_samples, num_classes))
+            ensemble_embeddings = []
+            for i, (model, param) in enumerate(zip(models, params)):
+                logits[i, :, :], embeddings = model.apply({'params': param}, np.array(X), train=False)
+                ensemble_embeddings.append(embeddings)
+
+            ensemble_embeddings = np.mean(np.stack(ensemble_embeddings), axis=0)
+
+        
+            update_dataset_epoch(name, ensemble_embeddings,Y)
+
+    
+
     if epoch%5==0 or epoch == n_epochs-1:
         print(f"saving: {output_name}")
         with open(output_path + output_name + '.pkl', 'wb') as file:
             pickle.dump(ensemble['outputs'],file)
 
-    if active_sampling and epoch%2==0 and epoch > 1  and len(training_set) < train_size:
+    if active_sampling and epoch%5==0 and epoch > 1  and len(training_set) < train_size:
         print("Active learning: selecting new samples...")
         print(len(unsampled))
+
+
+        ensemble['train_states'] = [
+            utils.reset_optimizer(ts, optimiser, m, k, n_vectors)
+            for ts, m, k in zip(ensemble['train_states'], ensemble['models'], ensemble['init_rngs'])
+        ]
+
         # Use the first model of the ensemble (or average predictions)
         model = ensemble['models'][0]
         params = ensemble['outputs']['params'][0]
@@ -334,6 +570,7 @@ for epoch in tqdm(range(n_epochs)):
             rngs={'dropout': rng}
         )
         probs = jax.nn.sigmoid(logits)
+        # probs = np.array(jax.nn.softmax(logits))
         # print("NDIM:",probs.ndim)
 
         new_indices = select_informative_samples(probs, embeds, k=sample_size, diversity_weight=config['data_params']['diversity'])
@@ -353,7 +590,13 @@ for epoch in tqdm(range(n_epochs)):
         #                                                'linear1',
         #                                                vector_length=n_vectors,
         #                                                embedding_dim=embedding_size,
-        #                                                rng=ensemble['rngs'][m])
+        # #                                                rng=ensemble['rngs'][m])
+
+        # ensemble['train_states'] = [
+        #     utils.reset_optimizer(ts, optimiser, m, k, n_vectors)
+        #     for ts, m, k in zip(ensemble['train_states'], ensemble['models'], ensemble['init_rngs'])
+        # ]
+
         if False:
             for i in range(n_models):
                 adamw = optax.adamw(

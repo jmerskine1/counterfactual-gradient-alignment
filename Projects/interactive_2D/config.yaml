@@ -1,0 +1,17 @@
+# Interactive 2D Pipeline – default configuration
+# These values are used as widget defaults when the GUI first opens.
+# All settings can be overridden interactively in the GUI.
+
+data_params:
+  dataset: Two Moons          # Gaussian | XOR | Two Moons | Circles
+  n_points: 200               # number of training samples generated
+
+hyperparams:
+  n_models: 3                 # ensemble size
+  n_hidden: 16                # hidden units per SimpleClassifier
+  batch_size: 32
+  epochs: 10                  # epochs per "Train" button click
+  learning_rate: 0.01
+  loss_function: combined_loss_softplus   # cross_entropy | combined_loss_softplus | combined_loss_relu | combined_loss_sign
+  loss_mix: 0.5               # alpha – weight of direction loss vs cross-entropy
+  seed: 42

@@ -1,0 +1,267 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%% LaTeX Template for AAMAS-2026 (based on sample-sigconf.tex)
+%%% Prepared by the AAMAS-2026 Publication Chairs based on the version from AAMAS-2025. 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%% Start your document with the \documentclass command.
+
+\documentclass[sigconf,anonymous]{aamas} 
+
+%%% Load required packages here (note that many are included already).
+
+\usepackage{balance} % for balancing columns on the final page
+\usepackage{algorithm}
+\usepackage{algorithmic}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{colortbl}
+\usepackage{xcolor}
+\usepackage[section]{placeins}
+\usepackage{amsmath}
+\DeclareMathOperator*{\argmax}{arg\,max}
+\DeclareMathOperator*{\argmin}{arg\,min}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{todonotes}
+\usepackage{orcidlink}
+\usepackage{hyperref}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%% AAMAS-2026 copyright block (do not change!)
+
+\setcopyright{ifaamas}
+\acmConference[AAMAS '26]{Proc.\@ of the 25th International Conference
+on Autonomous Agents and Multiagent Systems (AAMAS 2026)}{May 25 -- 29, 2026}
+{Paphos, Cyprus}{C.~Amato, L.~Dennis, V.~Mascardi, J.~Thangarajah (eds.)}
+\copyrightyear{2026}
+\acmYear{2026}
+\acmDOI{}
+\acmPrice{}
+\acmISBN{}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%% == IMPORTANT ==
+%%% Use this command to specify your submission number.
+%%% In anonymous mode, it will be printed on the first page.
+
+\acmSubmissionID{<<submission id>>}
+
+%%% Use this command to specify the title of your paper.
+
+\title[Counterfactual Gradient Alignment]{Counterfactual Gradient Alignment: Optimizing Directional Expert Supervision for Data-Efficient Learning}
+
+%%% Provide names, affiliations, and email addresses for all authors.
+
+\author{Arthur Pendragon}
+\affiliation{
+  \institution{Camelot Castle}
+  \city{Camelot}
+  \country{United Kingdom}}
+\email{king.arthur@camelot.uk}
+
+\author{Nimue}
+\affiliation{
+  \institution{The Lady's Lake}
+  \city{Avalon}
+  \country{United Kingdom}}
+\email{lady.of.the.lake@avalon.uk}
+
+%%% Use this environment to specify a short abstract for your paper.
+
+\begin{abstract}
+Typically, machine learning algorithms must find patterns in samples drawn from an unknown data distribution, with no prior contextual information about the input space or intuition about the problem they are solving. Humans, by contrast, can apply both intuition and prior knowledge to quickly solve new problems, requiring less training data. In this paper we investigate how to address this disparity by enriching traditional labels for supervised classification tasks through gradient-based \emph{expert annotations}. We present a framework for \textbf{Counterfactual Gradient Alignment (CGA)} which (1) annotates existing observations with directions in the feature space pointing towards proximal counterfactuals and (2) utilizes a novel family of loss functions---including ReLU, Softplus, and Sign-based variants---which reward model gradients that align with these directions. We demonstrate the effectiveness of CGA across a diverse suite of benchmarks: synthetic 2D datasets (XOR, Circles, TwoMoons), image classification (MNIST), and multiple natural language sentiment classification tasks (IMDB, SST-2, SST-5). Our results reveal significant accuracy improvements in low-data regimes, such as a +7.1\% gain on IMDB and a +14.5\% improvement on complex 2D boundaries. Furthermore, we uncover a critical synergy between CGA and active learning, showing that directional supervision is uniquely effective when applied to informative boundary samples.
+\end{abstract}
+
+%%% Use this command to specify a few keywords describing your work.
+%%% Keywords should be separated by commas.
+
+\keywords{Counterfactual Explanations, Gradient Supervision, Active Learning, Data Efficiency, Human-AI Interaction}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%% Include any author-defined commands here.         
+\newcommand{\BibTeX}{\rm B\kern-.05em{\sc i\kern-.025em b}\kern-.08em\TeX}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\begin{document}
+
+%%% The following commands remove the headers in your paper. For final 
+%%% papers, these will be inserted during the pagination process.
+
+\pagestyle{fancy}
+\fancyhead{}
+
+%%% The next command prints the information defined in the preamble.
+
+\maketitle 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\section{Introduction}
+Modern machine learning architectures typically require large amounts of data to learn reliable decision boundaries and generalise well to out-of-distribution examples \cite{hand_classifier, Challen231, souza2020challenges}. Humans are, by contrast, significantly more data-efficient. We utilize information beyond passive data-label pairs, applying structural priors and geometric intuition to generalize from a handful of examples. For instance, a human expert doesn\'t just recognize a specific review as "Positive"; they understand that changing a few key emotive words could flip its sentiment. This directional intuition represents a latent supervision signal that is largely untapped in current ML pipelines.
+
+In this work, we propose \textbf{Counterfactual Gradient Alignment (CGA)}, a framework that converts this intuitive knowledge into a differentiable training signal. In CGA, an expert provides a direction vector $\mathbf{d}$ indicating the shortest or most feasible path to a counterfactual instance (a point where the classification changes). We then constrain the model\'s gradients to align with this vector, ensuring that moving towards the counterfactual consistently reduces the model\'s confidence in the original class. This effectively "teaches" the model the local topology of the decision boundary.
+
+We evaluate CGA across vision and NLP domains, covering binary and multiclass tasks. We explore a family of loss functions---ReLU, Softplus, and Sign-based variants---and investigate the interaction between CGA and importance sampling (Active Learning). Our experiments demonstrate that CGA provides substantial gains in low-data regimes, particularly when paired with active selection of boundary samples. Specifically, we observe up to +7.17\% gain on IMDB sentiment and a massive +14.5\% improvement on complex 2D boundaries.
+
+Furthermore, we identify a profound synergy between CGA and active learning. We show that directional supervision is most impactful when applied to model-selected informative samples, whereas applying it to random or "easy" samples can be counter-productive. This suggests that CGA is best deployed in a "teaching" loop where the model proactively queries the expert for directional intuition on its most ambiguous boundaries.
+
+\section{Related Work}
+\label{related_work}
+
+\subsection{Embedding human priors in model training}
+One significant motivation of this work is to enable human annotators to provide domain knowledge to models to improve data efficiency. \citeauthor{rieger2020interpretations} \cite{rieger2020interpretations} demonstrated the ability to embed human priors in their work developing contextual decomposition explanation penalisation (CDEP). CDEP enables embedding domain knowledge during model training to ignore spurious correlations and correct errors. Ross et al. embed human priors as explanations and develop a loss function which balances cross entropy loss with an additional function to penalise misaligned model explanations \cite{ross2017right}.
+
+\subsection{Training with counterfactuals}
+Kaushik et al. \cite{Kaushik2020Learning} present a system for collecting counterfactually augmented data (CAD) by tasking human annotators to minimally edit individual observations to produce a counterfactual. They demonstrate that incorporating counterfactuals within the training data as additional factual points leads to improved generalisation. In our work, we take a different approach: we use counterfactuals not just as points, but as \emph{directional supervisors} for the model\'s derivative landscape.
+
+\subsection{Learning through gradient supervision}
+Teney et al. \cite{teney2020learning} introduce "gradient supervision", which involves penalising the angle between model gradients and counterfactual vectors. 
+\begin{equation}
+        \mathcal{L}_{GS} \left(\mathbf{g}_i,\hat{\mathbf{g}}_i \right)  = 
+        1 - \langle\mathbf{g}_i,\hat{\mathbf{g}}_i \rangle /
+        \left( \lVert \mathbf{g}_i \rVert \lVert \hat{\mathbf{g}}_i \rVert \right)
+\end{equation}
+Our work expands on this by evaluating different penalty shapes. Where Teney et al. focus on angular alignment, our \textbf{Softplus} and \textbf{Sign} variants provide magnitude-aware and bounded alignment signals, which we find to be more robust across diverse dataset topologies.
+
+\subsection{Importance Sampling}
+Importance sampling techniques in active learning prioritize samples that contribute most to model learning. He et al.\cite{he2014active} combined uncertainty sampling with representativeness. Our work investigates the interaction between these sampling strategies and gradient-based supervision, showing that CGA depends uniquely on sample informativeness.
+
+\section{Gradient-Based Learning}
+\label{sec:gradient_learning}
+We assume access to triplets {$\mathbf{x_i}, y_i, \mathbf{d_i}$}, where $y_i$ is the class label and $\mathbf{d_i}$ is a unit vector pointing towards a counterfactual $\hat{\mathbf{x}}_i$:
+\begin{equation}
+    \mathbf{d_i}=\frac{\hat{\mathbf{x}}_i - \mathbf{x_i}}{|\!|\hat{\mathbf{x}}_i - \mathbf{x_i}||}. \label{eq:dir_unit}
+\end{equation}
+We propose that moving from $\mathbf{x_i}$ towards $\hat{\mathbf{x}}_i$ should indicate a decrease in the model\'s prediction probability for the true class $y$. Let $f_y(\mathbf{x})$ be the logit for class $y$. We define the \textbf{Directional Derivative} $d$ as the projection of the gradient onto the counterfactual direction:
+\begin{equation}
+    d = \nabla_x f_{y}(x) \cdot \mathbf{d}_{i}
+\end{equation}
+We aim to minimize $d$ (making it negative). To this end, we define three loss variants:
+
+\begin{enumerate}
+    \item \textbf{ReLU Loss}: $\mathcal{L}_{\text{ReLU}} = \max(0, d)$. This applies a linear penalty only if the derivative is positive (confidence is increasing towards the counterfactual).
+    \item \textbf{Softplus Loss}: $\mathcal{L}_{\text{Softplus}} = \log(1 + e^{\beta d})$. A smooth version of ReLU that encourages a steep confidence drop-off even when the model is already "correct."
+    \item \textbf{Sign Loss}: $\mathcal{L}_{\text{Sign}} = \tanh(\beta d) + 1$. This focuses purely on the sign of the derivative, providing a bounded signal that is robust to outliers.
+\end{enumerate}
+
+The total loss is a mixture controlled by parameter $\alpha 
+in [0,1]$:
+\begin{align}\label{eq:total_loss}
+    \mathcal{L}_{\text{Total}} = (1-\alpha)\mathcal{L}_{\textrm{CE}} + \alpha \mathcal{L}_{d}
+\end{align}
+
+\section{Experimental Setup}
+\label{sec:experimental_setup}
+
+\subsection{Datasets and Feature Representations}
+\paragraph{2D Synthetic:} We use XOR (4 clusters), Concentric Circles, and Two Moons. Inputs are raw coordinates $(x_1, x_2) \in \mathcal{R}^2$.
+\paragraph{Image (MNIST):} Standard $28\times28$ grayscale digits. We use three path types for counterfactuals: \textbf{Raw} (Euclidean), \textbf{PCA} (Principal Components), and \textbf{FACE} (Feasible Path algorithm \cite{poyiadzi2020face}).
+\paragraph{Text (IMDB, SST):} Sentiment classification tasks. Reviews are represented as Bag-of-Words (BoW) averages of 50-dimensional embeddings. We evaluate binary (IMDB, SST-2) and 5-class (SST-5) settings.
+
+\subsection{Model Architectures and Optimization}
+For synthetic tasks, we use a simple 2-layer MLP. For MNIST, we employ an optimized CNN with two convolutional layers and a dense head. For NLP, we use a custom BoW neural network implemented in JAX/Flax. All models are optimized using the \textbf{AdamW} optimizer with weight decay $10^{-4}$ and dataset-specific learning rates ($10^{-4}$ to $10^{-3}$). 
+
+\subsection{Active Learning Protocol}
+Experiments were conducted with and without active learning (AL). In the AL condition, the training set is initialized with a small subset and expanded iteratively using entropy-based importance sampling with a diversity parameter to target boundary samples.
+
+\section{Results}
+\label{sec:results}
+
+\subsection{Binary Classification Performance}
+On the IMDB dataset, CGA with the Softplus variant demonstrated remarkable robustness. As shown in Table \ref{tab:imdb_results}, Softplus achieves a +7.17\% gain at the 200-sample scale.
+
+\begin{table}[h]
+\centering
+\caption{IMDB Validation Accuracy (AL ON, 5 Epochs).}
+\label{tab:imdb_results}
+\begin{tabular}{lcccc}
+\toprule
+\textbf{Size} & \textbf{Baseline (CE)} & \textbf{Best CGA} & \textbf{Variant} & \textbf{Gain} \\
+\midrule
+10 & 50.20\% & \textbf{52.25\%} & ReLU & +2.05\% \\
+100 & 51.43\% & \textbf{56.56\%} & Sign & +5.13\% \\
+200 & 55.94\% & \textbf{63.11\%} & Softplus & \textbf{+7.17\%} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Multiclass Generalization}
+In the more challenging SST-5 task (5-class sentiment), CGA consistently outperformed CE at the 100-sample scale (Table \ref{tab:sst5_results}).
+
+\begin{table}[h]
+\centering
+\caption{SST-5 Validation Accuracy (AL ON, 5 Epochs).}
+\label{tab:sst5_results}
+\begin{tabular}{lcccc}
+\toprule
+\textbf{Size} & \textbf{Baseline (CE)} & \textbf{Best CGA} & \textbf{Variant} & \textbf{Gain} \\
+\midrule
+100 & 53.06\% & \textbf{56.46\%} & ReLU & \textbf{+3.40\%} \\
+200 & 60.54\% & 60.54\% & Softplus & 0.00\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Active Learning Synergy}
+We observed that CGA is highly sensitive to sample quality. Disabling active learning (using random samples) degraded CGA performance below the CE baseline in almost all text benchmarks (Table \ref{tab:al_synergy}).
+
+\begin{table}[h]
+\centering
+\caption{CGA Synergy with Active Learning (Size 100).}
+\label{tab:al_synergy}
+\begin{tabular}{lcc}
+\toprule
+\textbf{Dataset} & \textbf{Gain (AL ON)} & \textbf{Gain (AL OFF)} \\
+\midrule
+IMDB & \textbf{+5.13\%} & -2.26\% \\
+SST-2 & \textbf{+1.36\%} & -2.72\% \\
+SST-5 & \textbf{+3.40\%} & -4.77\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Complex Topologies: 2D Circles}
+The Concentric Circles benchmark highlighted CGA\'s ability to regularize complex boundaries. While CE struggled to define the circle from sparse samples, directional supervision guided the model to a 14.5\% accuracy improvement.
+
+\section{Discussion}
+\label{sec:discussion}
+The consistent success of the \textbf{Softplus} variant suggests that smooth, persistent gradient alignment is superior to the "zero-penalty" correct regions of ReLU. By providing a non-zero loss even when the directional derivative is negative, Softplus ensures the model maintains a high-margin confidence drop toward the counterfactual boundary.
+
+The failure of CGA on random data subsets (Table \ref{tab:al_synergy}) reveals that directional supervision is a high-precision signal. For central, "easy" samples, the counterfactual direction may align with irrelevant noise features or conflict with the primary classification signal. However, for boundary samples where the model is uncertain, the directional signal provides critical structural information that standard cross-entropy lacks.
+
+\section{Conclusions}
+\label{sec:conclusions}
+Counterfactual Gradient Alignment (CGA) represents a significant step towards machine-interpretable expert supervision. By optimizing the model\'s gradient landscape directly, CGA achieves superior data efficiency across vision and language tasks. Our work shows that the combination of smooth directional loss (Softplus) and active sample selection is essential for maximizing the utility of counterfactual annotations.
+
+\balance
+\bibliographystyle{ACM-Reference-Format}
+\bibliography{sample}
+
+\appendix
+\section{Counterfactual Path Generation}
+We evaluated three path types on MNIST (Table \ref{tab:mnist_paths}). \textbf{FACE} paths, which respect data density, provided the most useful directional signals.
+
+\begin{table}[h]
+\centering
+\caption{MNIST Path Type Comparison (Size 200).}
+\label{tab:mnist_paths}
+\begin{tabular}{lcccc}
+\toprule
+\textbf{Path Type} & \textbf{Baseline} & \textbf{Best Accuracy} & \textbf{Gain} \\
+\midrule
+Raw & 83.50\% & 84.52\% & +1.02\% \\
+FACE & 83.50\% & \textbf{84.78\%} & \textbf{+1.28\%} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\end{document}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

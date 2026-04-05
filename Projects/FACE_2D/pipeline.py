@@ -62,11 +62,15 @@ Generate DATASET
 """
 data_name = config['data_params']['dataset']
 
+knowledge_func_key = config['data_params']['knowledge_func']
+knowledge_func = knowledge_functions[knowledge_func_key]
+
 train = genCustomDataset(custom_datasets[data_name],config['data_params']['train_size'],None,
                          train=True,
                          visualise=config['visualisation']['visualise'],
                          seed=config['hyperparams']['seed'],
-                         n_vec = config['data_params']['n_vec'])
+                         n_vec = config['data_params']['n_vec'],
+                         knowledge_func = None)
 
 
 validation = genCustomDataset(custom_datasets[data_name],config['data_params']['validation_size'],None,
@@ -75,17 +79,20 @@ validation = genCustomDataset(custom_datasets[data_name],config['data_params']['
                          seed=config['hyperparams']['seed'],
                          n_vec = config['data_params']['n_vec'])
 
-KX = []
-KY = []
-KK = []
-
 classes = list(np.unique(train.Y))
 n_classes = len(classes)
 n_points = len(train.X)
 
+
+KX = []
+KY = []
+KK = []
+
 for class_i in classes:
     
     for point in [train.X[i] for i, y in enumerate(train.Y) if y == class_i]:
+        if np.random.rand()>1.0:
+            continue
     
         other_classes = [classes[i] for i, x in enumerate(classes) if x != class_i]
         
@@ -93,24 +100,26 @@ for class_i in classes:
         KY_i = []
         KK_i = []
 
-        breadcrumbs  = counterfactual_breadcrumbs(train.X[train.X==point],
+        knowledge  = knowledge_func(train.X[train.X==point],
                                                     classifier = train.data.optimum_classifier,
                                                     Z = validation.X,
-                                                    n_breadcrumbs=3)
+                                                    n_vec=config['data_params']['n_vec'])
         
-        KX_i.append(breadcrumbs['origins'])
+        KX_i.extend(knowledge['origins'])
         # KY_i.append(breadcrumbs['labels'][i])
-        KY_i.append(class_i*np.ones_like(breadcrumbs['labels']))
-        KK_i.append(breadcrumbs['origins'] + breadcrumbs['vectors'])
+        KY_i.extend(class_i*np.ones_like(knowledge['labels']))
+        KK_i.extend(knowledge['origins'] + knowledge['vectors'])
                 
 
         KX.append(np.array(KX_i))
         KY.append(np.array(KY_i))
         KK.append(np.array(KK_i))
-        
+
+
 train.K = {'X': KX,
-           'Y': KY,
-           'K': KK}
+        'Y': KY,
+        'K': KK}
+
 
 output_path = project_dir + "/model_outputs/" + data_name + "/"
 os.makedirs(output_path, exist_ok=True)
@@ -164,7 +173,6 @@ optimiser = optax.chain(
     optax.adam(schedule)
 )
 
-
 # Define a learning rate schedule (e.g., exponential decay)
 learning_rate_schedule = optax.exponential_decay(
     init_value=learning_rate,  # Starting learning rate
@@ -198,6 +206,7 @@ adabelief = optax.adabelief(
 )
 
 scheduled_adadelta = optax.adadelta(learning_rate=learning_rate_schedule, weight_decay=0.05)
+
 
 optimiser = adabelief
 # optimiser = adadelta
@@ -294,7 +303,7 @@ train_original_data_loader = torch.utils.data.DataLoader(
 output_name = (f"MODEL_ENSEMBLE_{n_models}_{model_name}__"
                f"emb{config['hyperparams']['embedding_size']}_"
                f"OPTIM_{optim_name}__LR_{learning_rate}__BATCHSIZE_{batch_size}__"
-               f"trainsize_{train_size}__active_{active_sampling}_smplsize_{sample_size}_div{config['data_params']['diversity']}_"
+               f"trainsize_{train_size}_{knowledge_func_key}_active_{active_sampling}_smplsize_{sample_size}_div{config['data_params']['diversity']}_"
                f"LOSS_{config['hyperparams']['loss_function']}_mix_{config['hyperparams']['loss_mix']}"+args.note)
 
 print("Loading and saving to : ", output_name)
@@ -518,3 +527,15 @@ while config['visualisation']['visualise_embeddings']:
         for fig, ax, scatter, slider in plots.values():
             fig.canvas.flush_events()
         plt.pause(0.01)
+
+if config['visualisation']['plot_epoch']:
+    utils.plotEpoch(train.X, train.Y,
+                    ensemble['models'][0],
+                    plot_states, 
+                    K=train.K,
+                    plot_type='video',
+                    project_dir=output_path,
+                    name=output_name,
+                    validation=validation) # type: ignore
+    
+    

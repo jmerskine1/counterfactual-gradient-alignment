@@ -15,7 +15,8 @@ from counterfactual_alignment.utilities import (predict_wrapper,
                                                 predict_wrapper_embedding,
                                                 embedding_only,
                                                 cosine_distance_batch,
-                                                embed_and_average_batchK)
+                                                embed_and_average_batchK,
+                                                normalize_K)
 
 from counterfactual_alignment.direction_class import GeometricDirectionalLoss   
 from counterfactual_alignment.custom_models import custom_models, MulticlassEmbeddingOnlyModel
@@ -214,7 +215,7 @@ def gradient_supervision_embedding(params, model, batch, rng, alpha=1):
 
 def multiclass_gradient_supervision(params, model, batch, rng, config=None,alpha=None):
     X, Y, K = batch['X'], batch['Y'], batch['K']['vector']   # shapes: (N,D), (N,), (N,n,D)
-
+    # print(X,Y,K)
     jac_fn = jax.jacobian(predict_wrapper, argnums=2)
     jac_map = jax.vmap(jac_fn, in_axes=(None, None, 0, None), out_axes=0)
     
@@ -223,12 +224,14 @@ def multiclass_gradient_supervision(params, model, batch, rng, config=None,alpha
 
     EPS = 1e-8
 
-    map_cosine = vmap(lambda a_row, b_col: 1 - (jnp.dot(a_row, b_col) /
+    # map_cosine = vmap(lambda a_row, b_col: 1 - (jnp.dot(a_row, b_col) /
+    map_cosine = vmap(lambda a_row, b_col: (jnp.dot(a_row, b_col) /
                               (jnp.linalg.norm(a_row) * jnp.linalg.norm(b_col) + EPS)), in_axes=(0, 1))
     
-    cosine_diff = vmap(lambda K_slice: map_cosine(K_slice+EPS, g_y_2.T+EPS), in_axes=1)(K)
+    # for multiclass; change to similarity as we look at gradient w.r.t correct class, penalise towards cf direction
+    cosine_sim = vmap(lambda K_slice: map_cosine(K_slice+EPS, g_y_2.T+EPS), in_axes=1)(K)
 
-    return jnp.mean(jnp.array(cosine_diff))
+    return jnp.mean(jnp.array(cosine_sim))
 
 
 
@@ -270,8 +273,29 @@ def multiclass_gradient_supervision_embedding(params, model, batch, rng, alpha=1
     return (1-alpha)*ce_loss + alpha * gs_loss
 
 
+def multiclass_gs_2d_wrapper(params, model, batch, rng, alpha=1):
+    
+    X, Y, K = np.array(batch['X']), batch['Y'], batch['K']
+    # print("XTYPE: ",type(X), " | XSHAPE: ",np.shape(X))
+    logits, _ = model.apply({'params': params}, X, train=True, rngs={'dropout': rng})
+    ce_loss = jnp.mean(optax.softmax_cross_entropy_with_integer_labels(logits=logits, labels=np.array(Y)))
+    
 
-def multiclass_split_gs_embedding(params, model, batch, rng, alpha=1):
+    for key,val in K.items():
+        K[key] = normalize_K(val)
+        # K[key] =jnp.concat(val,axis = 1).squeeze()
+
+    gs_loss = multiclass_gradient_supervision(params,model,
+                       {"X":K['X'],
+                        'Y':K['Y'],
+                        "K":{'vector':K['K']},
+                        },rng)
+    
+    return (1-alpha)*ce_loss + alpha * gs_loss
+
+
+
+def multiclass_split_gs_embedding(params, model, batch, rng, alpha=1, r = 1.0):
     
     X, Y, K = np.array(batch['X']), batch['Y'], batch['K']
     # print("XTYPE: ",type(X), " | XSHAPE: ",np.shape(X))
@@ -279,7 +303,10 @@ def multiclass_split_gs_embedding(params, model, batch, rng, alpha=1):
     ce_loss = jnp.mean(optax.softmax_cross_entropy_with_integer_labels(logits=logits, labels=np.array(Y)))
     dataset = {}
     for key,val in K.items():
+        if key=='text':
+            continue
         dataset[key] = jnp.concatenate(val)
+        K[key] = jnp.concatenate(val)[0:max(1,int(len(X)*r))] #KWORDS: FILTERING, SUBSAMPLE, LIMIT, REDUCE
 
 
     _, k_embs = model.apply({'params': params}, dataset['K'], train=False, rngs={'dropout': rng})
@@ -297,6 +324,9 @@ def multiclass_split_gs_embedding(params, model, batch, rng, alpha=1):
                         },rng)
     
     return (1-alpha)*ce_loss + alpha * gs_loss
+
+def multiclass_split_gs_embedding_half(params, model, batch, rng, alpha=1, r = 0.5):
+    return multiclass_split_gs_embedding(params, model, batch, rng, alpha=1, r = 0.5)
 
 def l2_loss(x, alpha):
     return alpha * (x ** 2).mean()
@@ -321,16 +351,43 @@ def multiclass_cross_entropy(params, model, batch, rng, config=None, alpha = Non
     X,Y = np.array(batch['X']),np.array(batch['Y'])
     
     logits,_ = model.apply({'params': params}, X, train=True, rngs={'dropout': rng})
-    preds = nn.sigmoid(logits)
+    # preds = nn.sigmoid(logits)
     loss = jnp.mean(optax.softmax_cross_entropy_with_integer_labels(logits=logits, labels=np.array(Y)))
+    # 3. Calculate L1 Penalty specifically for Embeddings
+    # Flax structures params as a dictionary matching your setup() names.
+    # Based on your code: self.embed = nn.Embed(...)
+    # embedding_weights = params['embed']['embedding']
     
-    # jax.debug.print('cs logits :{x}',x=logits)
-    # jax.debug.print('cs preds :{x}',x=preds)
-    # jax.debug.print('labels :{x}',x=np.array(Y))
+    # # L1 Norm: Sum of absolute values
+    # l1_penalty = jnp.sum(jnp.abs(embedding_weights))
 
-    return loss
+    
+    
 
+    return loss # + 1e-6*l1_penalty
 
+# def multiclass_cross_entropy(params, model, batch, rng, config=None, alpha=None):
+#     X, Y = np.array(batch['X']), np.array(batch['Y'])
+    
+#     # 1. Forward Pass
+#     logits, _ = model.apply({'params': params}, X, train=True, rngs={'dropout': rng})
+    
+#     # 2. Base Loss (Cross Entropy)
+#     loss = jnp.mean(optax.softmax_cross_entropy_with_integer_labels(logits=logits, labels=np.array(Y)))
+    
+#     # 3. L2 Penalty specifically for Embeddings
+#     embedding_weights = params['embed']['embedding']
+    
+#     # L2 is the sum of squares: sum(w^2)
+#     # This penalizes large outliers, forcing weights to be small and diffused.
+#     l2_penalty = jnp.sum(jnp.square(embedding_weights))
+    
+#     # 4. Hyperparameter (Lambda)
+#     # 1e-4 is a standard starting point. 
+#     # Too high (>0.01) = Underfitting. Too low (<1e-6) = No effect.
+#     # l2_lambda = 1e-4
+
+#     return loss + (l2_lambda * l2_penalty)
 
 
 def cross_entropy(params, model, batch, rng, config=None,alpha=None):
@@ -379,6 +436,39 @@ def directional_loss(theta, y, scale=10.0):
 
 
 
+def direction_common(params, model, batch, rng, loss_type='softplus'):
+    X, Y, K = jnp.array(batch['X']), batch['Y'], batch['K']['vector']   # shapes: (N,D), (N,), (N,n,D)
+    rngs = jax.random.split(rng, X.shape[0])
+    g = batched_grad_predict(params, model, X, rngs)  # (N,D)
+    if K.ndim == 3:
+        # K is (N, n, D): sum dot products across all annotation vectors per point
+        directional_derivative = jnp.sum(g[:, None, :] * K, axis=(1, 2))  # (N,)
+    else:
+        # K is (N, D): single vector per point
+        directional_derivative = jnp.sum(g * K, axis=1)  # (N,)
+    desired_sign = -(1.0 - 2.0 * jnp.array(Y).astype(jnp.float32))
+
+    if loss_type == 'softplus':
+        loss = nn.softplus(10*directional_derivative*desired_sign)/10
+    elif loss_type == 'relu':
+        loss = nn.relu(directional_derivative*desired_sign)
+    elif loss_type == 'sign':
+        loss = jnp.tanh(10.0 * directional_derivative * desired_sign) + 1.0
+    else:
+        loss = nn.softplus(10*directional_derivative*desired_sign)/10
+    
+    return jnp.mean(loss)
+
+def direction_relu(params, model, batch, rng, config=None, alpha=None):
+    return direction_common(params, model, batch, rng, loss_type='relu')
+
+def direction_softplus(params, model, batch, rng, config=None, alpha=None):
+    return direction_common(params, model, batch, rng, loss_type='softplus')
+
+def direction_sign(params, model, batch, rng, config=None, alpha=None):
+    return direction_common(params, model, batch, rng, loss_type='sign')
+
+
 def direction(params, model, batch, rng, config=None, alpha=None):
     X, Y, K = batch['X'], batch['Y'], batch['K']['vector']   # shapes: (N,D), (N,), (N,n,D)
     
@@ -386,13 +476,12 @@ def direction(params, model, batch, rng, config=None, alpha=None):
 
     g = batched_grad_predict(params, model, X, rngs)  # (N,D)
 
-    # directional_derivative = jnp.einsum('ijk,ik->ij', K, g)
-    directional_derivative = jnp.sum(g * K, axis=1)
-    
-    # directional_derivative = g @ K.T
-    
+    if K.ndim == 3:
+        directional_derivative = jnp.sum(g[:, None, :] * K, axis=(1, 2))  # (N,)
+    else:
+        directional_derivative = jnp.sum(g * K, axis=1)  # (N,)
+
     desired_sign = -(1.0 - 2.0 * jnp.array(Y).astype(jnp.float32))
-    # print(Y[0])
 
     loss = nn.softplus(10*directional_derivative*desired_sign)/10
 
@@ -463,7 +552,7 @@ def multiclass_direction(params, model, batch, rng, config=None):
     directional_derivative = jnp.sum(g_y_2 * dir_norm, axis=1)  # shape (N,)
     
     magnitude = jnp.linalg.norm(dir,axis=1)
-    sign = jnp.tanh(20.0*directional_derivative)
+    sign = jnp.tanh(200.0*directional_derivative)
 
     """
     """
@@ -477,7 +566,7 @@ def multiclass_direction(params, model, batch, rng, config=None):
 
     """
     """
-    # loss = 1 + sign
+    
     # jax.debug.print('dd: {}',directional_derivative)
 
     # jax.debug.print('e: {}',entropy)
@@ -499,9 +588,19 @@ def multiclass_direction(params, model, batch, rng, config=None):
     # loss = nn.relu(directional_derivative/magnitude)
     # loss = nn.softplus(10*directional_derivative)/(magnitude)
     
-    # loss = nn.softplus(10*directional_derivative)/10
+    
 
-    loss = nn.relu(directional_derivative)
+    # loss = 1 + sign
+
+    # loss = nn.relu(directional_derivative)
+
+    # loss = nn.softplus(directional_derivative)
+    
+    loss = nn.softplus(10*directional_derivative)/10 # weak softplus
+    # loss = nn.softplus(10*directional_derivative)/5 # medium softplus
+    # loss = nn.softplus(10*directional_derivative) # strong softplus
+
+    
     
     # loss = nn.softplus(directional_derivative)/magnitude
     # jax.debug.print("X: {}",X)
@@ -635,6 +734,62 @@ def combined_loss_archive(params, model, batch, rng, alpha=0.5):
     return loss
 
 
+def combined_loss_embedding_common(params, model, batch, rng, alpha=0.5, direction_fn=direction_softplus):
+    X, Y, K = batch['X'], batch['Y'], batch['K']
+    
+    ce_loss = cross_entropy(params, model, batch, rng, alpha=0.5)
+
+    logits, embeddings = model.apply({'params': params}, X, train=True, rngs={'dropout': rng})
+
+    batch_size, k_count = K['vector'].shape[:2]
+    k_vectors_flat = K['vector'].reshape(batch_size * k_count, *K['vector'].shape[2:])
+    _, k_embs = model.apply({'params': params}, k_vectors_flat, train=False, rngs={'dropout': rng})
+
+    embedding_length = embeddings.shape[-1]
+    embeddings_expanded = jnp.expand_dims(embeddings, axis=1)        
+    embeddings_expanded = jnp.repeat(embeddings_expanded, k_count, axis=1)  
+    embeddings_expanded = embeddings_expanded.reshape(batch_size * k_count, embedding_length)
+    y_expanded = jnp.expand_dims(np.array(Y), axis=1)
+    y_expanded = jnp.repeat(y_expanded, k_count, axis=1)  
+    y_expanded = y_expanded.reshape(batch_size * k_count)
+    
+    k_direction = batch_unit_vector(embeddings_expanded,k_embs)
+
+    params_linear = {'linear1': params['linear1']}
+
+    d_loss = direction_fn(params_linear,embedding_only,
+                       {"X":embeddings_expanded,
+                        'Y':y_expanded,
+                        "K":{'vector':k_direction},
+                        },rng)
+    
+    return (1 - alpha) * ce_loss + alpha * d_loss
+
+def combined_loss_embedding_relu(params, model, batch, rng, alpha=0.5):
+    return combined_loss_embedding_common(params, model, batch, rng, alpha, direction_relu)
+
+def combined_loss_embedding_softplus(params, model, batch, rng, alpha=0.5):
+    return combined_loss_embedding_common(params, model, batch, rng, alpha, direction_softplus)
+
+def combined_loss_embedding_sign(params, model, batch, rng, alpha=0.5):
+    return combined_loss_embedding_common(params, model, batch, rng, alpha, direction_sign)
+
+
+def combined_loss_common(params, model, batch, rng, alpha=0.5, direction_fn=direction_softplus):
+    ce_loss = cross_entropy(params,model,batch,rng)
+    d_loss = direction_fn(params,model,batch,rng)
+    return (1 - alpha) * ce_loss + alpha * d_loss
+
+def combined_loss_relu(params, model, batch, rng, alpha=0.5):
+    return combined_loss_common(params, model, batch, rng, alpha, direction_relu)
+
+def combined_loss_softplus(params, model, batch, rng, alpha=0.5):
+    return combined_loss_common(params, model, batch, rng, alpha, direction_softplus)
+
+def combined_loss_sign(params, model, batch, rng, alpha=0.5):
+    return combined_loss_common(params, model, batch, rng, alpha, direction_sign)
+
+
 def combined_loss(params, model, batch, rng, alpha=0.5):
 
     ce_loss = cross_entropy(params,model,batch,rng)
@@ -651,6 +806,62 @@ def combined_loss(params, model, batch, rng, alpha=0.5):
     # return loss, logits
     return loss
 
+
+
+def multiclass_direction_common(params, model, batch, rng, loss_type='relu'):
+    X, Y, K = batch['X'], batch['Y'], batch['K']['vector']   # shapes: (N,D), (N,), (N,n,D)
+    
+    jac_fn = jax.jacobian(predict_wrapper, argnums=2)
+    
+    jac_map = jax.vmap(jac_fn, in_axes=(None, None, 0, None), out_axes=0)
+    
+    g_y = jac_map(params, model, X, rng)
+    g_y_2 = jnp.array([g_y_i[y_i,:] for g_y_i,y_i in list(zip(g_y,Y))])
+
+    dir = K-X
+    
+    dir_norm = dir / (jnp.linalg.norm(dir+1e-8, axis=1, keepdims=True)) # + 1e-8)
+    directional_derivative = jnp.sum(g_y_2 * dir_norm, axis=1) # shape (N,) 
+    # jax.debug.print("DD: {}",directional_derivative)
+    # jax.debug.print("MAX: {}",max(directional_derivative))
+    # jax.debug.print("MIN: {}",min(directional_derivative))
+    # jax.debug.print("Directional Derivative: {}",directional_derivative)
+    if loss_type == 'relu':
+        loss = nn.relu(directional_derivative)
+    elif loss_type == 'softplus':
+        loss = nn.softplus(10*directional_derivative)/10 # weak softplus
+        # loss = nn.softplus(10*directional_derivative)/5 # medium softplus
+        # loss = nn.softplus(10*directional_derivative) # strong softplus
+    elif loss_type == 'sign':
+        loss = jnp.tanh(200.0 * directional_derivative) + 1.0
+    else:
+        loss = nn.relu(directional_derivative)
+    # jax.debug.print("Loss: {}",loss)
+    return jnp.mean(loss)
+
+def multiclass_direction_relu(params, model, batch, rng, config=None):
+    return multiclass_direction_common(params, model, batch, rng, loss_type='relu')
+
+def multiclass_direction_softplus(params, model, batch, rng, config=None):
+    return multiclass_direction_common(params, model, batch, rng, loss_type='softplus')
+
+def multiclass_direction_sign(params, model, batch, rng, config=None):
+    return multiclass_direction_common(params, model, batch, rng, loss_type='sign')
+
+
+def multiclass_combined_loss_common(params, model, batch, rng, alpha=0.5, direction_fn=multiclass_direction_relu):
+    ce_loss = multiclass_cross_entropy(params,model,batch,rng)
+    d_loss = direction_fn(params,model,batch,rng)
+    return (1 - alpha) * ce_loss + alpha * d_loss
+
+def multiclass_combined_loss_relu(params, model, batch, rng, alpha=0.5):
+    return multiclass_combined_loss_common(params, model, batch, rng, alpha, multiclass_direction_relu)
+
+def multiclass_combined_loss_softplus(params, model, batch, rng, alpha=0.5):
+    return multiclass_combined_loss_common(params, model, batch, rng, alpha, multiclass_direction_softplus)
+
+def multiclass_combined_loss_sign(params, model, batch, rng, alpha=0.5):
+    return multiclass_combined_loss_common(params, model, batch, rng, alpha, multiclass_direction_sign)
 
 
 def multiclass_combined_loss(params, model, batch, rng, alpha=0.5):
@@ -672,9 +883,6 @@ def multiclass_combined_loss(params, model, batch, rng, alpha=0.5):
 def combined_loss_imdb(params, model, batch, rng, config):
 
     alpha = config['hyperparams']['loss_mix']
-
-    for key,_ in batch.items():
-        print(key,batch[key].items())
 
     ce_loss = cross_entropy(params,model,batch['original'],rng)
     params_linear = {'linear1': params['linear1']}
@@ -828,7 +1036,8 @@ def multiclass_split_loss(params, model, batch, rng, alpha=1):
     
 
     for key,val in K.items():
-        K[key] =jnp.concat(val,axis = 1).squeeze()
+        # K[key] =jnp.concat(val,axis = 1).squeeze()
+        K[key] = normalize_K(val)
         # K[key] = jnp.concatenate(val)
         # K[key] = jnp.stack([pad_to_max(jnp.array(k), k_count) for k in val]) 
     # print("concat SHAPE: ",K['X'].shape)
@@ -862,6 +1071,8 @@ def multiclass_split_loss_embedding(params, model, batch, rng, alpha=1):
         # print('dim 1:',type(val[0]))
 
         K[key] = jnp.concatenate(val)
+        # K[key] = normalize_K(val) # might need this?
+
         # print(np.shape(K[key]))
         # K[key] = jnp.stack([pad_to_max(jnp.array(k), k_count) for k in val]) 
     # print("concat SHAPE: ",K['X'].shape)
@@ -936,53 +1147,21 @@ def multiclass_allcombined_loss_embedding(params, model, batch, rng, alpha=1):
     return (1 - alpha) * ce_loss + alpha * (gs_loss+d_loss)
 
 
-def multiclass_direction_common(params, model, batch, rng, loss_type='relu'):
-    X, Y, K = batch['X'], batch['Y'], batch['K']['vector']   # shapes: (N,D), (N,), (N,n,D)
 
-    jac_fn = jax.jacobian(predict_wrapper, argnums=2)
-    
-    jac_map = jax.vmap(jac_fn, in_axes=(None, None, 0, None), out_axes=0)
-    
-    g_y = jac_map(params, model, X, rng)
-    g_y_2 = jnp.array([g_y_i[y_i,:] for g_y_i,y_i in list(zip(g_y,Y))])
-
-    dir = K-X
-    dir_norm = dir / jnp.linalg.norm(dir, axis=1, keepdims=True)
-    directional_derivative = jnp.sum(g_y_2 * dir_norm, axis=1)  # shape (N,)
-    
-    if loss_type == 'relu':
-        loss = nn.relu(directional_derivative)
-    elif loss_type == 'softplus':
-        loss = nn.softplus(directional_derivative)
-    elif loss_type == 'sign':
-        loss = jnp.tanh(10.0 * directional_derivative) + 1.0
-    else:
-        loss = nn.relu(directional_derivative)
-
-    return jnp.mean(loss)
-
-def multiclass_direction_relu(params, model, batch, rng, config=None):
-    return multiclass_direction_common(params, model, batch, rng, loss_type='relu')
-
-def multiclass_direction_softplus(params, model, batch, rng, config=None):
-    return multiclass_direction_common(params, model, batch, rng, loss_type='softplus')
-
-def multiclass_direction_sign(params, model, batch, rng, config=None):
-    return multiclass_direction_common(params, model, batch, rng, loss_type='sign')
-
-
-def multiclass_split_loss_embedding_common(params, model, batch, rng, alpha=1, direction_fn=multiclass_direction_relu):
+def multiclass_split_loss_embedding_common(params, model, batch, rng, alpha=1, direction_fn=multiclass_direction_relu, r = 1.0):
     
     X, Y, K = np.array(batch['X']), batch['Y'], batch['K']
     logits, embeddings = model.apply({'params': params}, X, train=True, rngs={'dropout': rng})
-   
+    # print('X: ',len(X))
+    # print('K: ',[len(K[key]) for key in K.keys()])
     ce_loss = jnp.mean(optax.softmax_cross_entropy_with_integer_labels(logits=logits, labels=np.array(Y)))
 
     for key,val in K.items():
         if key=='text':
             continue
-        K[key] = jnp.concatenate(val)
-    
+        # ratio = 1.0
+        K[key] = jnp.concatenate(val)[0:max(1,int(len(X)*r))] #KWORDS: FILTERING, SUBSAMPLE, LIMIT, REDUCE
+    # print('K: ',[len(K[key]) for key in K.keys()])
     _, x_embs = model.apply({'params': params}, K['X'], train=False, rngs={'dropout': rng})
     _, k_embs = model.apply({'params': params}, K['K'], train=False, rngs={'dropout': rng})
     
@@ -996,17 +1175,36 @@ def multiclass_split_loss_embedding_common(params, model, batch, rng, alpha=1, d
                         "K":{'vector':k_embs},
                         },rng)
     
-    return (1 - alpha) * ce_loss + alpha * d_loss
+    # 3. Calculate L1 Penalty specifically for Embeddings
+    # Flax structures params as a dictionary matching your setup() names.
+    # Based on your code: self.embed = nn.Embed(...)
+    # embedding_weights = params['embed']['embedding']
+    
+    # L1 Norm: Sum of absolute values
+    # l1_penalty = jnp.sum(jnp.abs(embedding_weights))
+
+    return (1 - alpha) * ce_loss + alpha * d_loss #+ 1e-6*l1_penalty
 
 def multiclass_split_loss_embedding_relu(params, model, batch, rng, alpha=1):
     return multiclass_split_loss_embedding_common(params, model, batch, rng, alpha, multiclass_direction_relu)
 
-def multiclass_split_loss_embedding_softplus(params, model, batch, rng, alpha=1):
-    return multiclass_split_loss_embedding_common(params, model, batch, rng, alpha, multiclass_direction_softplus)
+def multiclass_split_loss_embedding_softplus_half(params, model, batch, rng, alpha=1, r=0.5):
+    return multiclass_split_loss_embedding_common(params, model, batch, rng, alpha, multiclass_direction_softplus,r)
 
-def multiclass_split_loss_embedding_sign(params, model, batch, rng, alpha=1):
+def multiclass_split_loss_embedding_softplus(params, model, batch, rng, alpha=1, r=1.0):
+    return multiclass_split_loss_embedding_common(params, model, batch, rng, alpha, multiclass_direction_softplus,r)
+
+def multiclass_split_loss_embedding_sign(params, model, batch, rng, alpha=1, r = 0.5):
     return multiclass_split_loss_embedding_common(params, model, batch, rng, alpha, multiclass_direction_sign)
 
+
+def multiclass_combined_gs(params, model, batch, rng, alpha=0.5):
+    ce_loss = multiclass_cross_entropy(params,model,batch,rng)
+    gs_loss = multiclass_gradient_supervision(params,model,batch,rng)
+    return (1 - alpha) * ce_loss + alpha * gs_loss
+
+def combined_loss_embedding_gs(params, model, batch, rng, alpha=0.5):
+    return (1-alpha)*cross_entropy(params, model, batch, rng) + alpha * gradient_supervision_embedding(params, model, batch, rng, alpha=1.0)
 
 # @jax.jit
 def direction_interactive_vectorized( params, batch):
@@ -1100,13 +1298,28 @@ def direction_interactive( params, batch):
 
 
 loss_functions =   {'direction':direction,
+                    'direction_relu':direction_relu,
+                    'direction_softplus':direction_softplus,
+                    'direction_sign':direction_sign,
                     'combined_loss':combined_loss,
+                    'combined_loss_relu':combined_loss_relu,
+                    'combined_loss_softplus':combined_loss_softplus,
+                    'combined_loss_sign':combined_loss_sign,
+                    'combined_loss_embedding_relu':combined_loss_embedding_relu,
+                    'combined_loss_embedding_softplus':combined_loss_embedding_softplus,
+                    'combined_loss_embedding_sign':combined_loss_embedding_sign,
+                    'combined_loss_embedding_gs':combined_loss_embedding_gs,
                     'multiclass_combined_loss':multiclass_combined_loss,
+                    'multiclass_combined_loss_relu':multiclass_combined_loss_relu,
+                    'multiclass_combined_loss_softplus':multiclass_combined_loss_softplus,
+                    'multiclass_combined_loss_sign':multiclass_combined_loss_sign,
+                    'multiclass_combined_gs':multiclass_combined_gs,
                     'multiclass_split_loss':multiclass_split_loss,
                     'combined_loss_embedding':combined_loss_embedding,
                     'multiclass_combined_loss_embedding':multiclass_combined_loss_embedding,
                     'multiclass_split_loss_embedding':multiclass_split_loss_embedding,
                     'multiclass_split_loss_embedding_relu':multiclass_split_loss_embedding_relu,
+                    'multiclass_split_loss_embedding_softplus_half':multiclass_split_loss_embedding_softplus_half,
                     'multiclass_split_loss_embedding_softplus':multiclass_split_loss_embedding_softplus,
                     'multiclass_split_loss_embedding_sign':multiclass_split_loss_embedding_sign,
                     'multiclass_allcombined_loss_embedding':multiclass_allcombined_loss_embedding,
@@ -1119,7 +1332,9 @@ loss_functions =   {'direction':direction,
                     'gradient_supervision_embedding':gradient_supervision_embedding,
                     'multiclass_gradient_supervision':multiclass_gradient_supervision,
                     'multiclass_gradient_supervision_embedding':multiclass_gradient_supervision_embedding,
+                    'multiclass_gs_2d_wrapper':multiclass_gs_2d_wrapper,
                     'multiclass_split_gs_embedding':multiclass_split_gs_embedding,
+                    'multiclass_split_gs_embedding_half':multiclass_split_gs_embedding_half,
                     'gradient_supervision_basic':gradient_supervision_basic,
                     'direction_interactive': direction_interactive,
                     'direction_interactive_vectorized': direction_interactive_vectorized}

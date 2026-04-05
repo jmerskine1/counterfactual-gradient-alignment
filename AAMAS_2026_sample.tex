@@ -1,0 +1,516 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%% LaTeX Template for AAMAS-2026 (based on sample-sigconf.tex)
+%%% Prepared by the AAMAS-2026 Publication Chairs based on the version from AAMAS-2025. 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%% Start your document with the \documentclass command.
+
+
+%%% == IMPORTANT ==
+%%% Use the first variant below for the final paper (including author information).
+%%% Use the second variant below to anonymize your submission (no author information shown).
+%%% For further information on anonymity and double-blind reviewing, 
+%%% please consult the call for paper information
+%%% https://cyprusconferences.org/aamas2026/submission-instructions/
+
+%%%% For anonymized submission, use this
+\documentclass[sigconf,anonymous]{aamas} 
+
+%%%% For camera-ready, use this
+%\documentclass[sigconf]{aamas} 
+
+
+%%% Load required packages here (note that many are included already).
+
+\usepackage{balance} % for balancing columns on the final page
+
+
+% JE ADDED PACKAGES
+\usepackage{algorithm}
+\usepackage{algorithmic}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{colortbl}
+\usepackage{xcolor}
+\usepackage[section]{placeins}
+\usepackage{amsmath}
+\DeclareMathOperator*{\argmax}{arg\,max}
+\DeclareMathOperator*{\argmin}{arg\,min}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{todonotes}
+\usepackage{orcidlink}
+\usepackage{hyperref}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%% AAMAS-2026 copyright block (do not change!)
+
+\setcopyright{ifaamas}
+\acmConference[AAMAS '26]{Proc.\@ of the 25th International Conference
+on Autonomous Agents and Multiagent Systems (AAMAS 2026)}{May 25 -- 29, 2026}
+{Paphos, Cyprus}{C.~Amato, L.~Dennis, V.~Mascardi, J.~Thangarajah (eds.)}
+\copyrightyear{2026}
+\acmYear{2026}
+\acmDOI{}
+\acmPrice{}
+\acmISBN{}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%% == IMPORTANT ==
+%%% Use this command to specify your submission number.
+%%% In anonymous mode, it will be printed on the first page.
+
+\acmSubmissionID{<<submission id>>}
+
+%%% Use this command to specify the title of your paper.
+
+\title[AAMAS-2026 Formatting Instructions]{Formatting Instructions for the 25th International Conference on Autonomous Agents and Multiagent Systems}
+
+%%% Provide names, affiliations, and email addresses for all authors.
+
+\author{Arthur Pendragon}
+\affiliation{
+  \institution{Camelot Castle}
+  \city{Camelot}
+  \country{United Kingdom}}
+\email{king.arthur@camelot.uk}
+
+\author{Nimue}
+\affiliation{
+  \institution{The Lady's Lake}
+  \city{Avalon}
+  \country{United Kingdom}}
+\email{lady.of.the.lake@avalon.uk}
+
+%%% Use this environment to specify a short abstract for your paper.
+
+
+
+
+\begin{abstract}
+
+% mention counterfactuals and paths but not too much so as to be confusing
+
+Typically, machine learning algorithms must find patterns in samples drawn from an unknown data distribution, with no prior contextual information about the input space or intuition about the problem they are solving. Humans, by contrast, can apply both intuition and prior knowledge to quickly solve new problems, requiring less training data. In this paper we investigate how to address this disparity by enriching traditional labels for supervised classification tasks; embedding additional information through gradient-based \emph{expert annotations}. We present a framework for learning from an oracle by (1) annotating existing observations with the direction in the input space which indicates a change of class and (2) utilising a loss function which rewards negative model gradients along these directions. We demonstrate this approach for a synthetic 2D problem and a natural language sentiment classification task, learning the task in fewer epochs than the standard method. 
+\end{abstract}
+
+%%% Use this command to specify a few keywords describing your work.
+%%% Keywords should be separated by commas.
+
+\keywords{Legends, Myths, Folktales}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%% Include any author-defined commands here.
+         
+\newcommand{\BibTeX}{\rm B\kern-.05em{\sc i\kern-.025em b}\kern-.08em\TeX}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\begin{document}
+
+%%% The following commands remove the headers in your paper. For final 
+%%% papers, these will be inserted during the pagination process.
+
+\pagestyle{fancy}
+\fancyhead{}
+
+%%% The next command prints the information defined in the preamble.
+
+\maketitle 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+
+\section{Introduction}
+Highly tailored machine learning models typically require large amounts of data and may fail to generalise well to out-of-distribution examples, leading to unexpected or inaccurate predictions \cite{hand_classifier, Challen231, souza2020challenges}. Humans are, by contrast, relatively fast learners. We are able to utilise information outside of the usual data-label pair that is provided to machine learning systems, requiring fewer data points in order to draw conclusions and generalise to unseen data. It would be trivial, for example, for a human to adapt from film reviews to political tweets when performing sentiment classification, where a machine learning (ML) model may require refinement \cite{blitzer-etal-2007-biographies}. When operating in real environments the underlying distribution of observable data is often dynamic, subject to change and has limited availability \cite{Sahiner2023}. Particularly when errors carry a high cost, be it monetary or a risk to human safety, strong generalisation is a necessary component of any model which aims to assist or replace a highly adaptable human supervisor.
+
+Whether we must maximise the utility of a few available samples or adapt to new observations quickly, the objective is often to learn the underlying distribution from a minimal number of examples while avoiding over-fitting. In online settings such as Active Learning, lack of data is addressed by the machine learning algorithm communicating with a (typically human) oracle who returns a new label for each query example, usually selected to reduce a form of uncertainty~\cite{prince2004does}. Formulations like Machine Teaching approach the problem by allowing humans to select minimal groups of samples that effectively describe concepts and patterns \cite{Zhu2015}. Both approaches can be said to improve data efficiency and the ability of models to generalise to new data through an informed selection of training data.
+
+In this work we describe an alternative approach; rather than querying an oracle, we enrich the data in the form of more \emph{complex annotations}. We propose that embedding more information in the annotation and learning process can increase data efficiency, at the expense of annotation complexity. We test our hypothesis on two binary classification tasks; (1) a synthetic 2D dataset, and (2) a sentiment classification task for the IMDB Large Movie Review Dataset \cite{imdb}. We present an example of one possible complex annotation by enriching our annotations with a direction vector which indicates the direction a sample must move in feature space in order to change the samples' classification; a \emph{counterfactual direction}. We also propose a novel loss function which enforces negative model gradients in the direction of the counterfactual, with the intuition being that a change in class should happen along this direction. Where gradients have been used previously as a natural method for providing human-interpretable explanations~\cite{simonyan2013deep}, this paper aims to reverse this pipeline and provide machine-interpretable supervision.
+
+To ensure effective utilization of our limited annotation budget, we employ entropy-based importance sampling with a diversity parameter to strategically select the most informative samples for counterfactual annotation~\cite{he2014active}. This approach combines uncertainty-based selection (targeting samples where the model is most confused) with diversity constraints (ensuring broad coverage across different regions of the feature space), maximizing the value of each human-provided counterfactual direction while avoiding redundant annotations in similar data regions. 
+
+\section{Related Work}
+\label{related_work}
+
+% zero/few-shot learning
+% objectives:
+%         generalization
+%         efficient adaptation
+%         utilization of auxiliary information
+
+% active learning
+% To embed human priors in some form of annotation for use during training, we settle on the idea that counterfactuals provide a useful learning signal which can be passed from human to machine, and investigate how to generate counterfactuals and integrate this learning signal into the machine learning pipeline. Here we look at previous work which relates to each of these constituent components
+
+
+
+In this section we review state-of-the-art methods for including additional information in machine learning systems that go beyond data-label pairs, namely; human priors, counterfactual observations and gradient supervision.
+
+\subsection{Embedding human priors in model training}
+One significant motivation of this work is to enable human annotators to provide domain knowledge to models to improve data efficiency. \citeauthor{rieger2020interpretations} \cite{rieger2020interpretations} demonstrated the ability to embed human priors in their work developing contextual decomposition explanation penalisation (CDEP). CDEP enables embedding domain knowledge during model training to ignore spurious correlations, correct errors, and generalise to different types of dataset shifts. This method assumes that the explanation method is truthful and penalises model explanations where these do not align with explanations provided by an oracle. Domain knowledge can be encoded by a human or in an automated fashion. In a similar fashion, Ross et al. embed human priors as explanations and develop a loss function which balances cross entropy loss with an additional function to penalise misaligned model explanations \cite{ross2017right}. In their applications, they reinforce the magnitude of gradients to align to pre-supposed explanation; penalising the model where features are inappropriately neglected or considered to be too important.
+
+\subsection{Training with counterfactuals}
+Kaushik et al. \cite{Kaushik2020Learning} present a system for collecting counterfactually augmented data by tasking human annotators to minimally edit individual observations to produce a counterfactual on a subset of the IMDB dataset \cite{imdb}. They demonstrate that incorporating counterfactuals within the training data leads to improved generalisation and show that training purely with unaltered data or counterfactual pairs leads to over-fitting on spurious signals, while a combined dataset produces a model which is less sensitive to these signals.
+
+In a follow up paper, Kaushik et al. investigate why counterfactually augmented data reduces spurious correlations \cite{kaushik2021explaining}. They propose that adding noise over causal features should worsen in-domain and out-of-domain performance, but that adding noise to non-causal features should improve relative performance on out-of-domain tasks. To test this hypothesis, they apply noise to the complement of the edited sections of text within their counterfactually augmented dataset. They repeat this process for sections of text identified by an attention-based classifier (BiLSTM with Self-Attention \cite{graves2005framewise}) and by gradient-based feature attribution \cite{li2016visualizing}, and find that human annotations served as the best augmentation for performance on out-of-distribution data. 
+
+In our work we evaluate models trained on the counterfactually augmented data produced both by humans and algorithmically. However, we take a different approach to learning from these counterfactual augmentations through gradient supervision.
+
+\subsection{Learning from counterfactuals through gradient supervision}
+\label{subsec:gradient_supervision}
+Teney et al. \cite{teney2020learning} introduce a novel training objective called ``gradient supervision", which involves penalising the angle between the gradients of a neural network classifier and the vector difference between counterfactual examples in the input space. Using a counterfactual, Teney et al. define a loss function which aims to minimise the angle between the model gradient and vector pointing to the counterfactual as 
+\begin{equation}
+        \mathcal{L}_{GS} \left(\mathbf{g}_i,\hat{\mathbf{g}}_i \right)  = 
+        1 - \langle\mathbf{g}_i,\hat{\mathbf{g}}_i \rangle /
+        \left( \lVert \mathbf{g}_i \rVert \lVert \hat{\mathbf{g}}_i \rVert \right)
+        \label{eq:gradient_supervision}
+\end{equation}
+where $\langle \cdot, \cdot \rangle$ is the inner product between two vectors, $\mathbf{g}_i$ denotes the gradient of the model with respect to an observation $\mathbf{x}_i$ and $\hat{\mathbf{g}}_i$ is the vector between counterfactual examples.
+
+Eq.~\ref{eq:gradient_supervision} is used as a regulariser alongside the conventional cross-entropy loss in order to align the model's decision surface between pairs of counterfactual examples. The authors demonstrate the effectiveness of their approach on tasks known for their susceptibility to poor generalisation due to biases in the training data; visual question answering, multi-label image classification, sentiment analysis, and natural language inference. Where Teney et al. assume alignment between the feature space and the output space and attempt to minimise the angle between the gradient of the model and the counterfactual direction, our proposed loss function is less restrictive, enforcing only the sign of the gradients of the model.
+
+\subsection{Importance Sampling}
+Importance sampling techniques have been widely adopted in active learning to improve annotation efficiency by prioritizing samples that contribute most to model learning. Early work by Settles and Craven~\cite{settles2008active} introduced cost-sensitive active learning, demonstrating that accounting for variable annotation costs can significantly improve learning curves compared to random sampling. He et al.~\cite{he2014active} extended this idea by combining uncertainty sampling with representativeness through a hybrid strategy leveraging kernel k-means clustering. Their approach selects samples based on a weighted combination of prediction entropy and similarity to the unlabeled pool, ensuring both informativeness and diversity in each batch.
+
+Doucet et al.~\cite{doucet2024bridging} bridged uncertainty and diversity by introducing a diversity parameter into entropy-based sampling, striking a balance between selecting highly uncertain samples and maintaining broad coverage of the feature space. Xie et al.~\cite{xie2024structural} proposed structural-entropy-based selection, using graph-based metrics to capture global data topology in sample selection.
+
+Empirical studies consistently report that sampling rates in the range of 5\% to 10\% of the unlabeled pool offer a strong trade-off between annotation cost and performance gains~\cite{poms2021low,liu2024utilizing}. 
+
+Our work does not aim to optimise for active learning, but as we are concerned with the scenario of scarce data, we employ an entropy-based importance sampling strategy with an integrated diversity parameter, specifically tailored for selecting samples to enrich with counterfactual direction annotations, using the ddefault sampling parameters described ~\cite{poms2021low,liu2024utilizing} in an effort to ensure high annotation utility and diverse coverage, critical for effective gradient-based supervision without overwhelming annotation budgets.
+
+% We investigate importance sampling as part of our learning strategy in an attempt to define the lower bound of counterfactuals which must be collected to significantly improve learning. 
+
+% - give some examples of early and recent importance sampling and discuss where our method comes from - entropy based importance sampling with a diversity weighting parameter
+
+% See implementation details section of Noisy-Label-Aware Active Learning for Audio Signals for relevant literature 
+
+% Related work section of Complementary Learning System Theory-based
+% Active Learning for Audio Classification has lots of useful content
+% We do not perform a comprehensive parameter study as we mainly want to understand learning under constraints and are less interested in developing a fully optimised active learning pipeline
+
+
+
+\section{Gradient-Based Learning}
+In traditional supervised machine learning for classification, we assume a dataset of $N$ random independent identically distributed (i.i.d.) observations $\{\mathbf{x_i}, y_i\} \sim P(\mathbf{x},y)$, where $\mathbf{x_i}\in\mathcal{R}^d$ and $y_i$ is the target class label~\cite{hastie2009elements}. Here, let us consider instead that we have access to triplets of the form of $\{\mathbf{x_i}, y_i, \mathbf{d_i}\}$, where $\mathbf{d_i}\in\mathcal{R}^d$ defines a unit vector from a point $\mathbf{x_i}$ which points towards a proximal example of the opposing class; a \emph{counterfactual}.
+
+Formally, a counterfactual is defined as the closest point to $\mathbf{x_i}$ for which the class is not the same as $y_i$ according to model $g(\mathbf{x})$ and a distance function $D$;
+\begin{equation}\label{eq:counterfactual}
+\begin{aligned}
+    \hat{\mathbf{x}}_i =& \argmin_{\mathbf{x}} D(\mathbf{x_i}-\mathbf{x}) \,\,\,\,\,\, \forall \, \mathbf{x} \\ &\text{such that} \, y_i \neq g(\mathbf{x})
+\end{aligned}
+\end{equation}
+where $g(\mathbf{x})$ can define a model to be queried, or in our case an expert human annotator. We propose that the direction from $\mathbf{x_i}$ towards a local counterfactual should indicate a decrease in prediction probabilities generated from our classifier $f(\mathbf{x})$ in that direction. We can define the counterfactual direction as a unit vector given by; 
+\begin{equation}
+    \mathbf{d_i}=\frac{\mathbf{x_i}-\mathbf{\hat{x}_i}}{||\mathbf{x_i}-\mathbf{\hat{x}_i}||}. \label{eq:dir_unit}
+\end{equation}
+To measure for decreasing probability, we calculate the sign of the directional gradient as
+\begin{equation}
+    s_{d_i} = \textrm{sign}(\nabla f(\mathbf{x}_i) \cdot \mathbf{d}_{i} )
+\end{equation}
+where $\nabla f(\mathbf{x}_i) \cdot \mathbf{d}_{i}$ is the gradient of the model in the direction of $\mathbf{d}_i$ with respect to input $\mathbf{x}_i$, $f(\mathbf{x}_i)$ is the predicted probability for $\mathbf{x}_i$ belonging to Class 0, and the $\textrm{sign}$ function is approximated with $\tanh{(c \nabla_{\mathbf{d}_{i}} f(\mathbf{x}_i) )}$ where $c=20$ to create a very steep function. To align the gradients of our model with the direction $\mathbf{d_i}$ in the binary classification setting, we can define a loss function as 
+\begin{align}\label{eq:direction_loss}
+    \mathcal{L}_{d} &= \frac{1}{N_d} \sum^{N_d}_{i=1} |(2y_i - 1)s_{\mathbf{d}_i} + 1|
+    % &\approx\frac{1}{N_d} \sum^N_d_{i=1} \frac{1}{k}\sum^k_{j=1} | \tanh{(c\nabla_{\mathbf{d}_{i}} f(\mathbf{x}_i))} + 1|
+\end{align}
+where $N_d$ is the number of examples in the training set for which we have labelled directions. Equation~\ref{eq:direction_loss} is a less specific formulation of Equation \ref{eq:gradient_supervision}. The summands of Equation \ref{eq:direction_loss} are defined for binary classification such that
+
+\begin{equation}
+    |(2y_i - 1)s_{d_i} + 1| = 
+    \begin{cases}
+        2 & \text{if } (y_i = 0 \land s_{d_i} = -1) \lor (y_i = 1 \land s_{d_i} = 1) \\
+        0 & \text{if } (y_i = 0 \land s_{d_i} = 1) \lor (y_i = 1 \land s_{d_i} = -1),
+    \end{cases}
+\end{equation}
+penalising positive gradients towards counterfactuals generated from Class 0, and negative gradients from Class 1. Extending to multi-class is simple provided the function enforces negative gradients along directions pointing to another class. There are many feasible functions that could align the model gradients with a direction, or use the information gathered from more complex annotations, such as the function defined by Teney et al. \cite{teney2020learning} discussed in Section \ref{subsec:gradient_supervision}. In either case, learning relies on user-defined directions and aligning the model gradients with the direction which specifies a change of class.
+
+Unlike standard cross entropy loss $\mathcal{L}_{\textrm{CE}}$, which is calculated using the ground truth class labels, our novel direction loss signal $\mathcal{L}_{d}$ requires that at least some of the observations in our dataset contain counterfactual directions, ignoring any observations for which these annotations are missing. Given that this would ignore the majority of our available training data, we expect that an optimal solution can be found which utilises both $\mathcal{L}_{\textrm{CE}}$ and $\mathcal{L}_{d}$. We therefore incorporate both loss terms into our loss function, introducing a control parameter $\lambda \in [0,1]$, which modifies the ratio of standard cross entropy loss to our direction loss which is used in training. Equation~\ref{eq:lambda} defines our total loss, $\mathcal{L}$.
+
+\begin{align}\label{eq:lambda}
+    \mathcal{L} = \lambda \mathcal{L}_{d} + (1-\lambda)\mathcal{L}_{\textrm{CE}}
+\end{align}
+
+
+% We can also relax the definition of a counterfactual, and introduce \emph{local counterfactuals} as a point locally around $\mathbf{x_i}$ that maximally changes the prediction probability $f(\mathbf{x_i})$;
+% \begin{equation}
+%     \mathbf{\hat{x}}_i = \argmin_\mathbf{x} ||g(\mathbf{x_i}) - g(\mathbf{x})|| \,\,\,\,\,\, \forall \, \mathbf{x} \, \text{where} \, ||\mathbf{x_i}-\mathbf{x}||^2 \leq \delta
+% \end{equation}
+% for some local region around $\mathbf{x_i}$ defined by $\delta$. The intuition behind this is that the decision boundary may lie far away from $\mathbf{x_i}$, as such the model $g(\mathbf{x})$ may be more confident at predicting a change in posterior locally around the point. 
+
+%Obviously a human annotator is not limited to providing only one counterfactual direction, and in such a scenario the multiple directions will define different pairs $\{\mathbf{x}_i, \mathbf{d_i}\}$. This allows for a level of randomness and uncertainty in the model $g(\mathbf{x})$ when finding counterfactuals, especially if the model is human annotators.
+
+
+% This can be summarised as $\{\mathbf{x_i}, \mathbf{K_i}=\{\mathbf{d_j},\mathbf{d_{j+1}},...,\mathbf{d_k}\}\}$ where $k$ is the cardinality of the set of counterfactuals defined for any given example in the dataset, $ 0 \leq k < \infty$.
+
+%This function will be used as a regulariser in combination with the cross-entropy loss.
+
+
+\section{Experimental Setup}
+Evaluation of our method is applicable to datasets where counterfactuals are available within the training data. We utilise several open-source datasets where counterfactuals are provided by humans [kaushik] or generated automatically [fitcf/qwen (AGNEWS), mcaleese (SST2)]
+The objective of our experiments is to measure how incorporating counterfactuals using Eq.~\ref{eq:direction_loss} may improve data efficiency. To this end we utilise small subsets of the available training data to simulate data scarcity, a common challenge in real-world applications. In all experiments we compare our method against a baseline model trained on cross-entropy (Eq.~\ref{eq:lambda}, $\lambda=0$), and the gradient supervision model proposed by \cite{teney2020learning}.
+
+Justify why we picked IMDB, SST-2, AGNews 
+
+
+\begin{figure*}[t]
+  \centering
+  \includegraphics[width=\textwidth]{figures/placeholder_figure.png}
+  \caption{Overview of the proposed counterfactual-enhanced active learning framework. 
+  The model leverages both factual and counterfactual samples, selected via importance sampling, 
+  and trained using a hybrid loss function.}
+  \label{fig:method_overview}
+\end{figure*}
+
+\subsubsection{Multiclass Embedding Loss}
+To jointly optimize classification accuracy and embedding consistency, we introduce a \textbf{multiclass combined loss function}. Given model parameters ($\theta$), inputs ($X$), and corresponding labels ($Y$), the model produces class logits and intermediate embeddings via $(\mathbf{z}, \mathbf{h}) = f_\theta(X)$ where ($\mathbf{z}$) denotes the predicted logits and $\mathbf{h}$ the latent embeddings. The total loss integrates the two loss functions as described in \ref{eq:lambda}.
+
+
+\subsubsection{Optimization Strategy}
+Model parameters were optimized using the \textbf{AdamW} optimizer~\citep{loshchilov2017decoupled}, implemented via the \texttt{Optax} library, configured with the following hyperparameters:
+$\beta_1{=}0.9$; $\beta_2{=}0.95$; $\epsilon{=}10^{-8}$; weight decay${=}10^{-4}$. The learning rate is adapted per-task.
+
+\subsection{Text Classification}
+\subsubsection{Data Preprocessing}
+All text datasets were subject to the following preprocessing pipeline:
+Text preprocessing involved removing HTML, bracketed content, URLs, email addresses, and numbers, followed by tokenization into lowercase words, stopword removal, and rule-based stemming to normalize lexical forms.
+
+\subsubsection{Feature Representation}
+A \texttt{CountVectorizer} was fitted to the training corpus, limited to the 20,000 most frequent tokens. This vocabulary was then reused for both development and test sets. Each document was transformed into a fixed-length sequence of token indices mapped to the vocabulary, truncated or padded to a length of 32.
+
+\subsubsection{Model Architecture}
+For text classification, we employed a \textbf{Bag-of-Words (BoW)} neural network implemented in \texttt{JAX/Flax}. Two model variants were used depending on the task: a binary classifier (\texttt{BagOfWordsClassifierSimple}) and a multi-class classifier (\texttt{BagOfWordsClassifierMultiClass}). Both models share the same general structure:
+\begin{enumerate}
+\item \textbf{Embedding layer:} A trainable embedding matrix maps token indices to dense vectors of dimension 50.
+\item \textbf{Average pooling:} Embeddings for all tokens in a document are averaged, ignoring padding tokens.
+\item \textbf{Dropout:} A dropout layer (rate = 0.5) is applied to mitigate overfitting.
+\item \textbf{Linear projection:} A single dense layer maps the pooled representation to either one logit (binary classification) or $N$ logits (multi-class classification).
+\end{enumerate}
+The model outputs both the predicted logits and the intermediate text representation, which are used for downstream tasks such as similarity computation and importance sampling.
+
+\subsection{Image Classification}
+Describe data prep and model architecture
+
+
+In our framework, we employ multiple approaches to generate counterfactual paths, moving beyond simple shortest-distance methods to incorporate more sophisticated path-finding strategies that ensure both feasibility and actionability. \todo[inline]{provide figure showing comparison}
+
+\subsubsection{Feasible Path Generation}
+Drawing from the work of Sokol et al. on navigating explanatory multiverse through counterfactual path geometry~\cite{sokol2023navigating}, we implement feasible path generation. This approach aims to address two critical limitations of traditional counterfactual methods: ensuring the counterfactual instance lies within high-density regions of the data distribution, and guaranteeing the existence of a plausible transformation path from the original instance.
+
+The feasible path generation process utilizes density-weighted graph construction, where edge weights incorporate both distance metrics and local data density information. This approach ensures that generated paths traverse high-density regions of the feature space, making the resulting counterfactuals more representative of the underlying data distribution~\cite{poyiadzi2020face}. In this work we aim to evaluate how useful these counterfactuals are compared to counterfactuals generated by the shortest path baselines.
+
+\subsubsection{Shortest Path Baselines}
+
+To evaluate the effectiveness of feasible path strategies, we implement two baseline approaches based on shortest-distance metrics: raw Euclidean distance and PCA-transformed distance. These baselines provide comparison points for understanding when sophisticated path-finding offers advantages over simpler geometric approaches.
+
+
+\subsubsection{Feature Representation}
+Images are provided as flattened grayscale inputs derived from the original ($28 \times 28$) MNIST digits, with pixel intensities normalised to the range ($[0, 1]$).
+
+\subsubsection{Model Architecture}
+For image classification, we employed a \textbf{Convolutional Neural Network (CNN)} implemented in \texttt{JAX/Flax}. The model, denoted \texttt{MNISTConvClassifierGemini}, extracts spatial features from grayscale images and maps them to class predictions. Its architecture consists of the following components:
+\begin{enumerate}
+\item \textbf{Convolutional feature extractor:} Two convolutional layers with 32 and 64 filters (kernel size $3 \times 3$) are each followed by ReLU activation and max-pooling ($2 \times 2$).
+\item \textbf{Feature embedding:} The flattened feature maps are projected into a 512-dimensional dense representation.
+\item \textbf{Dropout regularization:} A dropout layer (rate = 0.4) is applied to the embedding during training to mitigate overfitting.
+\item \textbf{Classification head:} A final dense layer maps the embedding to ten output logits corresponding to the MNIST digit classes.
+\end{enumerate}
+Convolutional layers use LeCun-normal initialization, while dense layers use Glorot-normal initialization. The model outputs both class logits and the intermediate feature embeddings for use in downstream analyses. All hyperparameters are optimised on the validation set for experiments with cross-entropy.
+
+\subsection{Importance Sampling}
+Justify and explain methodology
+
+\section{Results}
+
+table 
+
+three datasets
+
+methods | full dataset | importance sampling trial 3, mid, end | 
+cross-entropy
+direction
+grad super
+
+mnist (control (cf as x) face local | direct paths, raw local | direct paths) ncf = 1
+methods | full dataset | importance sampling trial 3, mid, end | 
+cross-entropy
+direction
+grad super
+
+\section{Discussion}
+\subsection{Text Classification}
+
+\subsection{Image Classification}
+
+
+ 
+
+\subsection{IMDB}
+
+Describe dataset size, model layers and activation functions
+we use a simple neural network with a single layer of 8 hidden neurons preceding a hyperbolic tangent (tanh) activation function. We optimise using Stochastic Gradient Descent, with a learning rate $lr = 0.01$ and a momentum $m=0.8$.
+
+
+Additionally, we present experiments in the setting of sentiment analysis for the IMDB dataset~\cite{imdb}, containing 50,000 highly polarised movie reviews. While we generate counterfactual directions for the 2D dataset, we utilise an existing counterfactually-augmented IMDB dataset \cite{Kaushik2020Learning} for the sentiment classification task, where counterfactuals are generated by human annotators tasked with minimally editing samples in order to flip the sentiment of the review. This dataset contains 2440 pairs of reviews and the corresponding counterfactual $\{\mathbf{x}_i, \mathbf{\hat{x}}_i\}$, from which we compute counterfactual directions from Equation~\ref{eq:dir_unit}. The total number of counterfactually-augmented observations (2440) remains fixed for both the full training dataset and the subset, so the percentage of available counterfactuals is greater for the subset. The test set contains none of the counterfactually-augmented observations. For all experiments we transform the reviews to a vector representations as input $\mathbf{x}_i$ using word2vec~\cite{word2vec} with 1000 features.
+
+\subsection{SST-2}
+
+\subsection{AGNEWS}
+
+\subsection{MNIST}
+
+
+\subsection{Ablation Study}
+\todo[inline]{
+Ablation parameters\\
+- LAMBDA: Performance w/out loss (lambda=0, Maybe separate bit in hyperparameter tuning) \\
+- Randomly selected counterfactuals vs paths vs noisy counterfactuals \\
+- Data availability \\
+- Model architecture - Modify layer breadth and depth \\
+- retest with no l2 regularization or dropout
+}
+
+
+\section{Conclusions}
+We present one extension to traditional labels, direction vectors along which we know ``something" about the sign of the model gradients, which we illustrate in the 2D example in Figure \ref{fig:2d_example}. Although we generate the counterfactuals in this example, it is trivial to imagine an interface through which a human could supply these direction vectors, thus demonstrating how human intuition can lead to better model performance for this scenario. We then test our method in a feature space with dimensionality orders of magnitude higher using a binary sentiment classification task, utilising counterfactually-augmented film reviews\cite{Kaushik2020Learning}.
+
+For both tasks, we train models with the full dataset and a subset of this data and show how performance declines in the case of limited data, while demonstrating that our method can improve performance in this case. Improvements are small for the sentiment classification task, but we find that integrating counterfactuals into training with our novel loss component does improve learning, particularly in earlier epochs. These findings lead us to dynamically modify the ratio of our novel loss function and cross entropy loss during training, producing a model which achieves higher accuracy overall and more closely approximates the model trained on the full dataset using cross entropy in the first few epochs. While these results show promise, below we acknowledge several limitations which must be overcome to demonstrate the utility of this approach.
+
+\subsection{Limitations}
+
+
+\subsection{Counterfactual Quality Metrics}
+\begin{itemize}
+    \item Not all counterfactuals can be assumed to be good
+    \item even human generated ones are not fantastic - give examples from kaushik and show they are not feasible
+    \item discuss algorithmic recourse paper and different cf quality metrics
+    \item discuss how in this paper we evaluate counterfactual quality metrics and investigate the effect of training with bad vs good counterfactuals
+    \subitem - As additional training points using C.E.
+    \subitem - As counterfactuals using gs loss or direction loss
+    
+\end{itemize}
+
+\emph{The cost of annotations may be prohibitive}, particularly if the minimal number of examples required to achieve satisfactory performance is not known. In this paper, we utilise over 2000 counterfactual examples to train our adapted models for the sentiment classification task. Future work could investigate the minimal number of examples required to affect model performance. Active learning may prove beneficial for prompting humans to annotate only regions of high uncertainty to reduce the overall annotation burden. 
+
+\emph{Choosing the right expert for a task may prove challenging}. Both the 2D classification task illustrated in Figure \ref{fig:2d_example} and the IMDB sentiment classification task are easily solvable, but real-world data can be harder to interpret and can be interpreted subjectively by different audiences with different skill levels. Models which are reliant on human annotators may raise questions of fairness and reliability, and will inherently inject annotator bias into a model, as is the case when semantic categories are poorly defined~\cite{malisiewicz2008recognition}. Additionally, we could go down the path of estimating the level of skill of the annotators as in the learning from crowds literature \cite{raykar10a}.
+
+\emph{Generalising across domains may not be fully achievable}. For our 2D example, a human could directly provide directions through some interface.
+% while moving beyond a 3D problem would quickly surpass human comprehension and would invalidate this method.
+We present one method of annotating high-dimensional data within the NLP domain, having humans generate counterfactuals from which we can generate a direction vector, but within other domains there will be a feasible limit on what a human annotator can interpret and annotate. To achieve a more general solution, we should investigate additional signals for gradient supervision. Counterfactuals are just one form of signal, and many other direction schemes could be used. Instead of prescribing that we always want to reinforce negative model gradients, future work could look at reinforcing positive or neutral gradients, or by suggesting more feasible paths to a counterfactual~\cite{poyiadzi2020face} as a straight line may not always reflect the real distribution of class probabilities or data in the latent space.
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%% The acknowledgments section is defined using the "acks" environment
+%%% (rather than an unnumbered section). The use of this environment 
+%%% ensures the proper identification of the section in the article 
+%%% metadata as well as the consistent spelling of the heading.
+
+\begin{acks}
+If you wish to include any acknowledgments in your paper (e.g., to 
+people or funding agencies), please do so using the `\texttt{acks}' 
+environment. Note that the text of your acknowledgments will be omitted
+if you compile your document with the `\texttt{anonymous}' option.
+\end{acks}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%% The next two lines define, first, the bibliography style to be 
+%%% applied, and, second, the bibliography file to be used.
+
+\bibliographystyle{ACM-Reference-Format} 
+\bibliography{sample}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\appendix
+
+\section{Entropy-based importance sampling with diversity}
+Where gradients have been used previously as a natural method for providing human-interpretable explanations~\cite{simonyan2013deep}, this paper aims to reverse this pipeline and provide machine-interpretable supervision.
+
+To ensure that our framework selects the most informative samples for counterfactual annotation while maintaining diversity across the feature space, we employ an entropy-based importance sampling strategy with an integrated diversity parameter. This approach addresses the common limitations of purely uncertainty-based or diversity-based sampling methods by combining their respective strengths~\cite{he2014active,doucet2024bridging}.
+
+\textbf{Implementation Details.} Our sampling procedure operates iteratively during training. At each selection round, we first compute the softmax probabilities from the current model's logits:
+
+\begin{equation}
+\mathbf{p}_i = \text{softmax}(\mathbf{f}_\theta(\mathbf{x}_i))
+\end{equation}
+
+where $\mathbf{f}_\theta$ represents our neural network model with parameters $\theta$. The uncertainty of each sample is then quantified using the entropy of these probability distributions:
+
+\begin{equation}
+U(\mathbf{x}_i) = -\sum_{y \in \mathcal{Y}} p_{i,y} \log p_{i,y}
+\end{equation}
+
+where $p_{i,y}$ denotes the predicted probability for class $y$ given input $\mathbf{x}_i$~\cite{shannon1948mathematical}. Samples with high entropy values indicate regions where the model exhibits significant classification uncertainty, making them prime candidates for informative annotations~\cite{liang2022active}.
+
+However, relying solely on uncertainty sampling can lead to the selection of similar samples clustered near decision boundaries, potentially overlooking diverse regions of the feature space that could provide broader representational coverage~\cite{settles2009active}. To address this limitation, we incorporate a diversity parameter $\beta$ that encourages the selection of samples spanning different regions of the feature space.
+
+Our \texttt{select\_informative\_samples} function implements a hybrid selection strategy that operates in two phases. First, we identify candidate samples with high uncertainty scores based on the entropy measure above. Second, we apply diversity-aware selection using the learned embeddings $\mathbf{e}_i$ from our model's intermediate representations:
+
+\begin{equation}
+\text{Selected} = \text{select\_informative\_samples}(\mathbf{P}, \mathbf{E}, k, \beta)
+\end{equation}
+
+where $\mathbf{P}$ contains the softmax probabilities, $\mathbf{E}$ represents the embedding matrix, $k$ specifies the number of samples to select, and $\beta$ controls the diversity weighting parameter.
+
+Following the approach of He et al.~\cite{he2014active}, we combine uncertainty and representativeness measures through a weighted formulation. For each sample $\mathbf{x}_i$, we compute its representativeness $Rep(\mathbf{x}_i)$ based on its similarity to other unlabeled instances in the embedding space:
+
+\begin{equation}
+Rep(\mathbf{x}_i) = \frac{1}{|U|} \sum_{\mathbf{x}_j \in U} \exp\left(-\frac{||\mathbf{e}_i - \mathbf{e}_j||^2}{2\sigma^2}\right)
+\end{equation}
+
+where $U$ represents the unlabeled dataset, $\mathbf{e}_i$ and $\mathbf{e}_j$ are the learned embeddings, and $\sigma$ controls the bandwidth of the similarity function. The combined information content is then:
+
+\begin{equation}
+Info(\mathbf{x}_i) = U(\mathbf{x}_i)^\alpha \cdot Rep(\mathbf{x}_i)^\beta
+\end{equation}
+
+where $\alpha$ and $\beta$ are weighting parameters that balance uncertainty and representativeness considerations, with $\beta$ corresponding to our \texttt{diversity\_weight} parameter.
+
+This iterative process ensures that our model continuously improves its understanding of challenging regions while maintaining diversity across the feature space. The entropy-based uncertainty measure ensures we focus annotation efforts on the most ambiguous classification boundaries, while the diversity parameter guarantees that our selected samples represent the global structure of the data distribution.
+
+For our gradient supervision framework, this balanced selection is particularly important, as diverse counterfactual directions provide richer supervision signals that can improve model generalization across the entire feature space rather than just local decision boundaries~\cite{kaushik2019learning}. The use of learned embeddings for diversity computation is especially valuable, as it ensures that similarity is measured in the model's internal representation space rather than raw input space, leading to more semantically meaningful diversity constraints.
+
+
+
+\section{Shortest path definitions}
+\paragraph{Raw Distance Counterfactuals}
+The raw distance approach generates counterfactuals by finding the nearest instance in the target class using standard Euclidean distance:
+
+\begin{equation}
+\mathbf{x}_{cf} = \arg\min_{\mathbf{x} \in \mathcal{X}_{target}} ||\mathbf{x} - \mathbf{x}_0||_2
+\end{equation}
+
+where \( \mathbf{x}_0 \) is the original instance and \( \mathcal{X}_{target} \) represents the set of instances classified in the desired target class. The direction vector is simply:
+
+\begin{equation}
+\mathbf{d}_{raw} = \mathbf{x}_{cf} - \mathbf{x}_0
+\end{equation}
+
+This approach provides the most direct path to a class change but may traverse low-density regions or suggest unrealistic feature combinations.
+
+\paragraph{PCA Distance Counterfactuals}
+The PCA-based approach addresses potential issues with feature scaling and correlation by first transforming the data into principal component space, finding the nearest counterfactual in this transformed space, and then projecting back to the original feature space.
+
+Let \( \mathbf{P} \) be the matrix of principal components obtained from the training data. The PCA distance counterfactual is found by:
+
+\begin{equation}
+\mathbf{z}_{cf} = \arg\min_{\mathbf{z} \in \mathcal{Z}_{target}} ||\mathbf{z} - \mathbf{z}_0||_2
+\end{equation}
+
+where \( \mathbf{z} = \mathbf{P}^T\mathbf{x} \) represents the PCA-transformed coordinates, and the final counterfactual is obtained by \( \mathbf{x}_{cf} = \mathbf{P}\mathbf{z}_{cf} \).
+
+The direction vector in original space becomes:
+\begin{equation}
+\mathbf{d}_{pca} = \mathbf{P}(\mathbf{z}_{cf} - \mathbf{z}_0) = \mathbf{x}_{cf} - \mathbf{x}_0
+\end{equation}
+
+This approach can be particularly effective when the feature space contains highly correlated variables or when features operate on different scales, as PCA transformation can reveal more meaningful proximity relationships.
+\end{document}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+

@@ -1,26 +1,27 @@
 data_params:
   boundary_only: false
-  dataset: integer_len32_SIZE_all
+  dataset: integer_len32_SIZE_250_noleaks #
   knowledge_func: counterfactual
   max_delta: 1.0
   n_vec: 2
   train_size: 10
-  n_classes: 4
   validation_size: 100
-  active_sampling: True
-  sample_size: 25
+  control: False
+  active_sampling: False
+  init_samplesize: 10
+  sample_size: 5
   diversity: 0.8
 hyperparams:
   n_models: 6
   batch_size: 32
   epochs: 50
-  learning_rate: 0.0001
-  loss_function:  multiclass_combined_loss_embedding  #multiclass_cross_entropy #  # #multiclass_gradient_supervision_embedding
-  loss_mix: 0.5
+  learning_rate: 0.001
+  loss_function: multiclass_split_loss_embedding_softplus #multiclass_cross_entropy # # # #  #   #multiclass_split_gs_embedding # #multiclass_gradient_supervision_embedding multiclass_combined_loss_embedding
+  loss_mix: 0.3
   model: multiclass_bag_of_words
   # num_classes: 4
   vocabulary_size: 20002
-  embedding_size: 128
+  embedding_size: 64
   model_io: !!python/tuple
   - 8
   - 1
@@ -33,4 +34,5 @@ visualisation:
   draw_eval: true
   plot_epoch: false
   video: false
-  visualise: true
+  visualise: False
+  visualise_embeddings: False

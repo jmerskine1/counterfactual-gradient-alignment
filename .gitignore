@@ -184,3 +184,5 @@ cython_debug/
 **/model_outputs/
 
 **/outputs/
+
+**/archive/

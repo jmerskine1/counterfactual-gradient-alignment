@@ -1,0 +1,82 @@
+[
+    {
+        "timestamp": "2026-01-16 17:15:08",
+        "loss_function": "multiclass_split_gs_embedding",
+        "alpha": 0.3,
+        "train_size": 10,
+        "accuracy": 10.2,
+        "output_file": "MODEL_ENSEMBLE_1_BagOfWordsClassifierMultiClass__emb32_OPTIM_adabelief__LR_0.0001__BATCHSIZE_8__trainsize_675__active_True_smplsize_20_div0.8_LOSS_multiclass_split_gs_embedding_mix_0.3"
+    },
+    {
+        "timestamp": "2026-01-16 17:15:23",
+        "loss_function": "multiclass_split_gs_embedding",
+        "alpha": 0.3,
+        "train_size": 20,
+        "accuracy": 12.93,
+        "output_file": "MODEL_ENSEMBLE_1_BagOfWordsClassifierMultiClass__emb32_OPTIM_adabelief__LR_0.0001__BATCHSIZE_8__trainsize_675__active_True_smplsize_20_div0.8_LOSS_multiclass_split_gs_embedding_mix_0.3"
+    },
+    {
+        "timestamp": "2026-01-16 17:15:40",
+        "loss_function": "multiclass_split_gs_embedding",
+        "alpha": 0.3,
+        "train_size": 50,
+        "accuracy": 33.33,
+        "output_file": "MODEL_ENSEMBLE_1_BagOfWordsClassifierMultiClass__emb32_OPTIM_adabelief__LR_0.0001__BATCHSIZE_8__trainsize_675__active_True_smplsize_20_div0.8_LOSS_multiclass_split_gs_embedding_mix_0.3"
+    },
+    {
+        "timestamp": "2026-01-16 17:16:00",
+        "loss_function": "multiclass_split_gs_embedding",
+        "alpha": 0.3,
+        "train_size": 100,
+        "accuracy": 54.42,
+        "output_file": "MODEL_ENSEMBLE_1_BagOfWordsClassifierMultiClass__emb32_OPTIM_adabelief__LR_0.0001__BATCHSIZE_8__trainsize_675__active_True_smplsize_20_div0.8_LOSS_multiclass_split_gs_embedding_mix_0.3"
+    },
+    {
+        "timestamp": "2026-01-16 17:16:25",
+        "loss_function": "multiclass_split_gs_embedding",
+        "alpha": 0.3,
+        "train_size": 200,
+        "accuracy": 60.54,
+        "output_file": "MODEL_ENSEMBLE_1_BagOfWordsClassifierMultiClass__emb32_OPTIM_adabelief__LR_0.0001__BATCHSIZE_8__trainsize_675__active_True_smplsize_20_div0.8_LOSS_multiclass_split_gs_embedding_mix_0.3"
+    },
+    {
+        "timestamp": "2026-01-16 17:16:39",
+        "loss_function": "multiclass_split_gs_embedding",
+        "alpha": 0.5,
+        "train_size": 10,
+        "accuracy": 10.2,
+        "output_file": "MODEL_ENSEMBLE_1_BagOfWordsClassifierMultiClass__emb32_OPTIM_adabelief__LR_0.0001__BATCHSIZE_8__trainsize_675__active_True_smplsize_20_div0.8_LOSS_multiclass_split_gs_embedding_mix_0.5"
+    },
+    {
+        "timestamp": "2026-01-16 17:16:54",
+        "loss_function": "multiclass_split_gs_embedding",
+        "alpha": 0.5,
+        "train_size": 20,
+        "accuracy": 12.93,
+        "output_file": "MODEL_ENSEMBLE_1_BagOfWordsClassifierMultiClass__emb32_OPTIM_adabelief__LR_0.0001__BATCHSIZE_8__trainsize_675__active_True_smplsize_20_div0.8_LOSS_multiclass_split_gs_embedding_mix_0.5"
+    },
+    {
+        "timestamp": "2026-01-16 17:17:12",
+        "loss_function": "multiclass_split_gs_embedding",
+        "alpha": 0.5,
+        "train_size": 50,
+        "accuracy": 32.65,
+        "output_file": "MODEL_ENSEMBLE_1_BagOfWordsClassifierMultiClass__emb32_OPTIM_adabelief__LR_0.0001__BATCHSIZE_8__trainsize_675__active_True_smplsize_20_div0.8_LOSS_multiclass_split_gs_embedding_mix_0.5"
+    },
+    {
+        "timestamp": "2026-01-16 17:17:31",
+        "loss_function": "multiclass_split_gs_embedding",
+        "alpha": 0.5,
+        "train_size": 100,
+        "accuracy": 55.1,
+        "output_file": "MODEL_ENSEMBLE_1_BagOfWordsClassifierMultiClass__emb32_OPTIM_adabelief__LR_0.0001__BATCHSIZE_8__trainsize_675__active_True_smplsize_20_div0.8_LOSS_multiclass_split_gs_embedding_mix_0.5"
+    },
+    {
+        "timestamp": "2026-01-16 17:17:56",
+        "loss_function": "multiclass_split_gs_embedding",
+        "alpha": 0.5,
+        "train_size": 200,
+        "accuracy": 61.22,
+        "output_file": "MODEL_ENSEMBLE_1_BagOfWordsClassifierMultiClass__emb32_OPTIM_adabelief__LR_0.0001__BATCHSIZE_8__trainsize_675__active_True_smplsize_20_div0.8_LOSS_multiclass_split_gs_embedding_mix_0.5"
+    }
+]

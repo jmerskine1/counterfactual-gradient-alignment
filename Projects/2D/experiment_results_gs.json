@@ -1,0 +1,47 @@
+[
+    {
+        "dataset": "XOR",
+        "train_size": 10,
+        "accuracy": 47.0
+    },
+    {
+        "dataset": "XOR",
+        "train_size": 30,
+        "accuracy": 70.0
+    },
+    {
+        "dataset": "XOR",
+        "train_size": 100,
+        "accuracy": 55.5
+    },
+    {
+        "dataset": "Circles",
+        "train_size": 10,
+        "accuracy": 28.5
+    },
+    {
+        "dataset": "Circles",
+        "train_size": 30,
+        "accuracy": 28.5
+    },
+    {
+        "dataset": "Circles",
+        "train_size": 100,
+        "accuracy": 39.0
+    },
+    {
+        "dataset": "TwoMoons",
+        "train_size": 10,
+        "accuracy": 61.5
+    },
+    {
+        "dataset": "TwoMoons",
+        "train_size": 30,
+        "accuracy": 63.0
+    },
+    {
+        "dataset": "TwoMoons",
+        "train_size": 100,
+        "accuracy": 67.5
+    }
+]
