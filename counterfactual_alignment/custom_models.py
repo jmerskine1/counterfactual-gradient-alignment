@@ -999,6 +999,76 @@ class MNISTViTClassifier(nn.Module):
 
         return logits, features
 
+class SimpleMNISTTransformer(nn.Module):
+    num_classes: int = 10
+    hidden_dim: int = 128      # Embedding dimension (and internal transformer dim)
+    num_heads: int = 4         # Number of attention heads
+    num_layers: int = 2        # Number of transformer blocks (keep it shallow for MNIST)
+    patch_size: int = 4        # 4x4 patches -> 7x7 = 49 patches total
+    mlp_dim: int = 256         # Dimension of the feed-forward layer inside the block
+
+    @nn.compact
+    def __call__(self, x, train=False):
+        # 1. Precise Reshaping (Ensure BHWC format)
+        if x.ndim == 2:
+            x = x.reshape((x.shape[0], 28, 28, 1))
+
+        b, h, w, c = x.shape
+        
+        # 2. Patch Embedding
+        # Instead of a loop, we use a Conv2D with stride=patch_size to create embeddings
+        # Output shape: (Batch, 7, 7, hidden_dim)
+        x = nn.Conv(features=self.hidden_dim, 
+                    kernel_size=(self.patch_size, self.patch_size), 
+                    strides=(self.patch_size, self.patch_size), 
+                    padding='VALID', 
+                    name='patch_embed')(x)
+        
+        # Flatten patches into a sequence: (Batch, Num_Patches, Hidden_Dim)
+        # Num_Patches = (28/4) * (28/4) = 49
+        x = x.reshape((b, -1, self.hidden_dim))
+        num_patches = x.shape[1]
+
+        # 3. Add Position Embeddings
+        # Learnable position embeddings to retain spatial information
+        pos_embed = self.param('pos_embed', 
+                               nn.initializers.normal(stddev=0.02), 
+                               (1, num_patches, self.hidden_dim))
+        x = x + pos_embed
+
+        # 4. Transformer Encoder Stack
+        for i in range(self.num_layers):
+            # Attention Block
+            residual = x
+            x = nn.LayerNorm()(x)
+            x = nn.SelfAttention(num_heads=self.num_heads, 
+                                 qkv_features=self.hidden_dim, 
+                                 deterministic=not train, 
+                                 name=f'attn_{i}')(x)
+            x = residual + x
+            
+            # MLP Block
+            residual = x
+            x = nn.LayerNorm()(x)
+            x = nn.Dense(self.mlp_dim)(x)
+            x = nn.gelu(x)
+            x = nn.Dense(self.hidden_dim)(x)
+            x = residual + x
+
+        # 5. Pooling (Global Average Pooling)
+        # Standard ViTs use a [CLS] token, but GAP is simpler and works great for MNIST
+        # Shape becomes: (Batch, Hidden_Dim)
+        embedding = jnp.mean(x, axis=1)
+
+        # 6. Final Classification
+        # We perform the Leaky ReLU check on the embedding as requested in your reference
+        # though usually Transformers use LayerNorm here. We'll stick to your interface.
+        x = nn.leaky_relu(embedding, negative_slope=0.01)
+        
+        logits = nn.Dense(self.num_classes, name='head')(x)
+
+        return logits, embedding
+
 # # Define the CNN architecture as a Flax nn.Module
 # class MNISTConvClassifierGemini(nn.Module):
 #     num_classes: int = 10
@@ -1602,6 +1672,7 @@ custom_models = {'simple':SimpleClassifier,
                  'finalform_mnist_conv':SurpassingMNIST,
                  'mnist_conv_gemini':MNISTConvClassifierGemini2,
                  'mnist_vit':MNISTViTClassifier,
+                 'simple_mnist_vit':SimpleMNISTTransformer,
                  'multiclass_bag_of_words':BagOfWordsClassifierMultiClass,
                  'gradient_supervision':GSPaper, 
                  'GPTattempt':TextClassifierHard}

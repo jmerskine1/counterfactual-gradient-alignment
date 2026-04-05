@@ -295,7 +295,7 @@ def multiclass_gs_2d_wrapper(params, model, batch, rng, alpha=1):
 
 
 
-def multiclass_split_gs_embedding(params, model, batch, rng, alpha=1):
+def multiclass_split_gs_embedding(params, model, batch, rng, alpha=1, r = 1.0):
     
     X, Y, K = np.array(batch['X']), batch['Y'], batch['K']
     # print("XTYPE: ",type(X), " | XSHAPE: ",np.shape(X))
@@ -306,6 +306,7 @@ def multiclass_split_gs_embedding(params, model, batch, rng, alpha=1):
         if key=='text':
             continue
         dataset[key] = jnp.concatenate(val)
+        K[key] = jnp.concatenate(val)[0:max(1,int(len(X)*r))] #KWORDS: FILTERING, SUBSAMPLE, LIMIT, REDUCE
 
 
     _, k_embs = model.apply({'params': params}, dataset['K'], train=False, rngs={'dropout': rng})
@@ -323,6 +324,9 @@ def multiclass_split_gs_embedding(params, model, batch, rng, alpha=1):
                         },rng)
     
     return (1-alpha)*ce_loss + alpha * gs_loss
+
+def multiclass_split_gs_embedding_half(params, model, batch, rng, alpha=1, r = 0.5):
+    return multiclass_split_gs_embedding(params, model, batch, rng, alpha=1, r = 0.5)
 
 def l2_loss(x, alpha):
     return alpha * (x ** 2).mean()
@@ -436,7 +440,12 @@ def direction_common(params, model, batch, rng, loss_type='softplus'):
     X, Y, K = jnp.array(batch['X']), batch['Y'], batch['K']['vector']   # shapes: (N,D), (N,), (N,n,D)
     rngs = jax.random.split(rng, X.shape[0])
     g = batched_grad_predict(params, model, X, rngs)  # (N,D)
-    directional_derivative = jnp.sum(g * K, axis=1)
+    if K.ndim == 3:
+        # K is (N, n, D): sum dot products across all annotation vectors per point
+        directional_derivative = jnp.sum(g[:, None, :] * K, axis=(1, 2))  # (N,)
+    else:
+        # K is (N, D): single vector per point
+        directional_derivative = jnp.sum(g * K, axis=1)  # (N,)
     desired_sign = -(1.0 - 2.0 * jnp.array(Y).astype(jnp.float32))
 
     if loss_type == 'softplus':
@@ -467,13 +476,12 @@ def direction(params, model, batch, rng, config=None, alpha=None):
 
     g = batched_grad_predict(params, model, X, rngs)  # (N,D)
 
-    # directional_derivative = jnp.einsum('ijk,ik->ij', K, g)
-    directional_derivative = jnp.sum(g * K, axis=1)
-    
-    # directional_derivative = g @ K.T
-    
+    if K.ndim == 3:
+        directional_derivative = jnp.sum(g[:, None, :] * K, axis=(1, 2))  # (N,)
+    else:
+        directional_derivative = jnp.sum(g * K, axis=1)  # (N,)
+
     desired_sign = -(1.0 - 2.0 * jnp.array(Y).astype(jnp.float32))
-    # print(Y[0])
 
     loss = nn.softplus(10*directional_derivative*desired_sign)/10
 
@@ -588,9 +596,9 @@ def multiclass_direction(params, model, batch, rng, config=None):
 
     # loss = nn.softplus(directional_derivative)
     
-    # loss = nn.softplus(10*directional_derivative)/10 # weak softplus
+    loss = nn.softplus(10*directional_derivative)/10 # weak softplus
     # loss = nn.softplus(10*directional_derivative)/5 # medium softplus
-    loss = nn.softplus(10*directional_derivative) # strong softplus
+    # loss = nn.softplus(10*directional_derivative) # strong softplus
 
     
     
@@ -821,9 +829,9 @@ def multiclass_direction_common(params, model, batch, rng, loss_type='relu'):
     if loss_type == 'relu':
         loss = nn.relu(directional_derivative)
     elif loss_type == 'softplus':
-        # loss = nn.softplus(10*directional_derivative)/10 # weak softplus
+        loss = nn.softplus(10*directional_derivative)/10 # weak softplus
         # loss = nn.softplus(10*directional_derivative)/5 # medium softplus
-        loss = nn.softplus(10*directional_derivative) # strong softplus
+        # loss = nn.softplus(10*directional_derivative) # strong softplus
     elif loss_type == 'sign':
         loss = jnp.tanh(200.0 * directional_derivative) + 1.0
     else:
@@ -1140,7 +1148,7 @@ def multiclass_allcombined_loss_embedding(params, model, batch, rng, alpha=1):
 
 
 
-def multiclass_split_loss_embedding_common(params, model, batch, rng, alpha=1, direction_fn=multiclass_direction_relu):
+def multiclass_split_loss_embedding_common(params, model, batch, rng, alpha=1, direction_fn=multiclass_direction_relu, r = 1.0):
     
     X, Y, K = np.array(batch['X']), batch['Y'], batch['K']
     logits, embeddings = model.apply({'params': params}, X, train=True, rngs={'dropout': rng})
@@ -1151,8 +1159,8 @@ def multiclass_split_loss_embedding_common(params, model, batch, rng, alpha=1, d
     for key,val in K.items():
         if key=='text':
             continue
-        ratio = 0.5
-        K[key] = jnp.concatenate(val)[0:max(1,int(len(X)*ratio))] #KWORDS: FILTERING, SUBSAMPLE, LIMIT, REDUCE
+        # ratio = 1.0
+        K[key] = jnp.concatenate(val)[0:max(1,int(len(X)*r))] #KWORDS: FILTERING, SUBSAMPLE, LIMIT, REDUCE
     # print('K: ',[len(K[key]) for key in K.keys()])
     _, x_embs = model.apply({'params': params}, K['X'], train=False, rngs={'dropout': rng})
     _, k_embs = model.apply({'params': params}, K['K'], train=False, rngs={'dropout': rng})
@@ -1180,10 +1188,13 @@ def multiclass_split_loss_embedding_common(params, model, batch, rng, alpha=1, d
 def multiclass_split_loss_embedding_relu(params, model, batch, rng, alpha=1):
     return multiclass_split_loss_embedding_common(params, model, batch, rng, alpha, multiclass_direction_relu)
 
-def multiclass_split_loss_embedding_softplus(params, model, batch, rng, alpha=1):
-    return multiclass_split_loss_embedding_common(params, model, batch, rng, alpha, multiclass_direction_softplus)
+def multiclass_split_loss_embedding_softplus_half(params, model, batch, rng, alpha=1, r=0.5):
+    return multiclass_split_loss_embedding_common(params, model, batch, rng, alpha, multiclass_direction_softplus,r)
 
-def multiclass_split_loss_embedding_sign(params, model, batch, rng, alpha=1):
+def multiclass_split_loss_embedding_softplus(params, model, batch, rng, alpha=1, r=1.0):
+    return multiclass_split_loss_embedding_common(params, model, batch, rng, alpha, multiclass_direction_softplus,r)
+
+def multiclass_split_loss_embedding_sign(params, model, batch, rng, alpha=1, r = 0.5):
     return multiclass_split_loss_embedding_common(params, model, batch, rng, alpha, multiclass_direction_sign)
 
 
@@ -1308,6 +1319,7 @@ loss_functions =   {'direction':direction,
                     'multiclass_combined_loss_embedding':multiclass_combined_loss_embedding,
                     'multiclass_split_loss_embedding':multiclass_split_loss_embedding,
                     'multiclass_split_loss_embedding_relu':multiclass_split_loss_embedding_relu,
+                    'multiclass_split_loss_embedding_softplus_half':multiclass_split_loss_embedding_softplus_half,
                     'multiclass_split_loss_embedding_softplus':multiclass_split_loss_embedding_softplus,
                     'multiclass_split_loss_embedding_sign':multiclass_split_loss_embedding_sign,
                     'multiclass_allcombined_loss_embedding':multiclass_allcombined_loss_embedding,
@@ -1322,6 +1334,7 @@ loss_functions =   {'direction':direction,
                     'multiclass_gradient_supervision_embedding':multiclass_gradient_supervision_embedding,
                     'multiclass_gs_2d_wrapper':multiclass_gs_2d_wrapper,
                     'multiclass_split_gs_embedding':multiclass_split_gs_embedding,
+                    'multiclass_split_gs_embedding_half':multiclass_split_gs_embedding_half,
                     'gradient_supervision_basic':gradient_supervision_basic,
                     'direction_interactive': direction_interactive,
                     'direction_interactive_vectorized': direction_interactive_vectorized}
